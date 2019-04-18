@@ -9,13 +9,18 @@ import * as fs from 'fs';
 import * as WavDecoder from 'wav-decoder';
 import * as WavEncoder from 'wav-encoder';
 
-export class WavFileManager {
+export interface IAudioData {
+  sampleRate: number;
+  channelData: Float32Array[];
+}
 
+export class WavFileManager {
+  
   /**
    * Carga un archivo .wav con la dirección dada.
    * @param filepath Nombre del archivo que se quiere cargar.
    */
-  public static readWAV(filepath: string): any {
+  public static readWAV(filepath: string): IAudioData {
     const buffer = WavFileManager.read(filepath);
     return WavDecoder.decode.sync(buffer);
   }
@@ -25,7 +30,7 @@ export class WavFileManager {
    * @param filepath Nombre del archivo en el que se quiere guardar.
    * @param audioData Datos del archivo .wav que se desean guardar
    */
-  public static writeWAV(filepath: string, audioData: any): any {
+  public static writeWAV(filepath: string, audioData: IAudioData) {
     const buffer = WavEncoder.encode.sync(audioData);
     fs.writeFileSync(filepath, Buffer.from(buffer));
   }
