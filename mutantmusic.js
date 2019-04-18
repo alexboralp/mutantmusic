@@ -6,8 +6,8 @@
  * Description: Manejador de mix de música
  */
 exports.__esModule = true;
-var WFM = require("./wavfilemanager");
 var MM = require("./musicmix");
+var WFM = require("./wavfilemanager");
 console.log('Leyendo...');
 var error = false;
 var audioData;

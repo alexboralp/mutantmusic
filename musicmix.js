@@ -3,7 +3,8 @@
  * Filename: musicmix.ts
  * Author: aborbon
  * Date: 04/10/2019
- * Description: Clase especializada en hacer un mix de música a partir de un conjunto de segmentos de música tomados de un archivo wav
+ * Description: Clase especializada en hacer un mix de música a partir
+ * de un conjunto de segmentos de música tomados de un archivo wav.
  */
 exports.__esModule = true;
 var MusicMix = /** @class */ (function () {
@@ -11,7 +12,7 @@ var MusicMix = /** @class */ (function () {
     function MusicMix() {
         this.audioChanelLeft = new Float32Array(0);
         this.audioChanelRight = new Float32Array(0);
-        this.canciones = new Array();
+        this.canciones = [];
     }
     /**
      * Agrega una canción o sonido a las canciones base para hacer el mix.
@@ -67,13 +68,13 @@ var MusicMix = /** @class */ (function () {
         var totalLoopSampling = time * MusicMix.samplingFrecuency;
         // Se intercala el sonido con el silencio
         while (duracionWhile < totalLoopSampling) {
-            mixChanelLeft = this.Float32Concat(mixChanelLeft, audioChanelLeft);
-            mixChanelRight = this.Float32Concat(mixChanelRight, audioChanelRight);
+            mixChanelLeft = this.float32Concat(mixChanelLeft, audioChanelLeft);
+            mixChanelRight = this.float32Concat(mixChanelRight, audioChanelRight);
             duracionWhile = duracionWhile + numSamples;
         }
         // Se agrega el resultado al mix
-        this.audioChanelLeft = this.Float32Concat(this.audioChanelLeft, mixChanelLeft);
-        this.audioChanelRight = this.Float32Concat(this.audioChanelRight, mixChanelRight);
+        this.audioChanelLeft = this.float32Concat(this.audioChanelLeft, mixChanelLeft);
+        this.audioChanelRight = this.float32Concat(this.audioChanelRight, mixChanelRight);
     };
     /**
      * Realiza un audio que inicia sonando sólo en el canal izquierdo,
@@ -87,7 +88,8 @@ var MusicMix = /** @class */ (function () {
         var numSamples = audioChanelLeft.length;
         var mixChanelLeft = new Float32Array(0);
         var mixChanelRight = new Float32Array(0);
-        // Crea un array de silencio para intercalarlo con el sonido, tiene el mismo tamaño que el audio original
+        // Crea un array de silencio para intercalarlo con el sonido,
+        // tiene el mismo tamaño que el audio original
         var silencio = new Float32Array(numSamples);
         // Variables del while
         var duracionWhile = 0;
@@ -95,17 +97,17 @@ var MusicMix = /** @class */ (function () {
         // Se intercala el sonido en cada canal con el sonido en ambos canales
         while (duracionWhile < totalLoopSampling) {
             // Copia el canal izquierdo y derecho para iniciar el loop
-            mixChanelLeft = this.Float32Concat(mixChanelLeft, audioChanelLeft);
-            mixChanelRight = this.Float32Concat(mixChanelRight, silencio);
-            mixChanelLeft = this.Float32Concat(mixChanelLeft, silencio);
-            mixChanelRight = this.Float32Concat(mixChanelRight, audioChanelRight);
-            mixChanelLeft = this.Float32Concat(mixChanelLeft, audioChanelLeft);
-            mixChanelRight = this.Float32Concat(mixChanelRight, audioChanelRight);
+            mixChanelLeft = this.float32Concat(mixChanelLeft, audioChanelLeft);
+            mixChanelRight = this.float32Concat(mixChanelRight, silencio);
+            mixChanelLeft = this.float32Concat(mixChanelLeft, silencio);
+            mixChanelRight = this.float32Concat(mixChanelRight, audioChanelRight);
+            mixChanelLeft = this.float32Concat(mixChanelLeft, audioChanelLeft);
+            mixChanelRight = this.float32Concat(mixChanelRight, audioChanelRight);
             duracionWhile = duracionWhile + 3 * numSamples;
         }
         // Se agrega el resultado al mix
-        this.audioChanelLeft = this.Float32Concat(this.audioChanelLeft, mixChanelLeft);
-        this.audioChanelRight = this.Float32Concat(this.audioChanelRight, mixChanelRight);
+        this.audioChanelLeft = this.float32Concat(this.audioChanelLeft, mixChanelLeft);
+        this.audioChanelRight = this.float32Concat(this.audioChanelRight, mixChanelRight);
     };
     /**
      * Intercala un audio con un silencio con la misma duración varias veces
@@ -128,26 +130,15 @@ var MusicMix = /** @class */ (function () {
         var totalLoopSampling = time * MusicMix.samplingFrecuency;
         // Se intercala el sonido con el silencio
         while (duracionWhile < totalLoopSampling) {
-            mixChanelLeft = this.Float32Concat(mixChanelLeft, audioChanelLeft);
-            mixChanelRight = this.Float32Concat(mixChanelRight, audioChanelRight);
-            mixChanelLeft = this.Float32Concat(mixChanelLeft, silencio);
-            mixChanelRight = this.Float32Concat(mixChanelRight, silencio);
+            mixChanelLeft = this.float32Concat(mixChanelLeft, audioChanelLeft);
+            mixChanelRight = this.float32Concat(mixChanelRight, audioChanelRight);
+            mixChanelLeft = this.float32Concat(mixChanelLeft, silencio);
+            mixChanelRight = this.float32Concat(mixChanelRight, silencio);
             duracionWhile = duracionWhile + 2 * numSamples;
         }
         // Se agrega el resultado al mix
-        this.audioChanelLeft = this.Float32Concat(this.audioChanelLeft, mixChanelLeft);
-        this.audioChanelRight = this.Float32Concat(this.audioChanelRight, mixChanelRight);
-    };
-    /*
-     * Concatena dos arrays de tipo Float32Array.
-     * El resultado se devuelve en un nuevo arreglo del mismo tipo.
-     */
-    MusicMix.prototype.Float32Concat = function (first, second) {
-        var firstLength = first.length;
-        var result = new Float32Array(firstLength + second.length);
-        result.set(first);
-        result.set(second, firstLength);
-        return result;
+        this.audioChanelLeft = this.float32Concat(this.audioChanelLeft, mixChanelLeft);
+        this.audioChanelRight = this.float32Concat(this.audioChanelRight, mixChanelRight);
     };
     // Getters y Setters
     /**
@@ -175,6 +166,18 @@ var MusicMix = /** @class */ (function () {
      */
     MusicMix.prototype.setAudioChanelRight = function (audioChanelRight) {
         this.audioChanelRight = audioChanelRight;
+    };
+    // Métodos privados
+    /*
+     * Concatena dos arrays de tipo Float32Array.
+     * El resultado se devuelve en un nuevo arreglo del mismo tipo.
+     */
+    MusicMix.prototype.float32Concat = function (first, second) {
+        var firstLength = first.length;
+        var result = new Float32Array(firstLength + second.length);
+        result.set(first);
+        result.set(second, firstLength);
+        return result;
     };
     // Frecuencia de los samples que se van a trabajar
     MusicMix.samplingFrecuency = 44100;

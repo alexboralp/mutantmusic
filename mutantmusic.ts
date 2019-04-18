@@ -5,8 +5,8 @@
  * Description: Manejador de mix de música
  */
 
-import * as WFM from './wavfilemanager';
 import * as MM from './musicmix';
+import * as WFM from './wavfilemanager';
 
 console.log('Leyendo...');
 let error: boolean = false;
@@ -17,7 +17,7 @@ let audioMix3: WFM.IAudioData;
 let audioMix4: WFM.IAudioData;
 let audioMix5: WFM.IAudioData;
 
-let mix = new MM.MusicMix();
+const mix = new MM.MusicMix();
 
 try {
   audioData = WFM.WavFileManager.readWAV('NCAYA2.wav');
