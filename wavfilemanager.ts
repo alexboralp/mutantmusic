@@ -15,7 +15,6 @@ export interface IAudioData {
 }
 
 export class WavFileManager {
-  
   /**
    * Carga un archivo .wav con la dirección dada.
    * @param filepath Nombre del archivo que se quiere cargar.
