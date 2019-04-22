@@ -32,7 +32,7 @@ export class MusicProcess {
   private matchTimes: number[];
 
   // Variable que se utilizará cuando se quiera realizar un mix de la canción.
-  private mix: MM.MusicMix; 
+  private mix: MM.MusicMix;
 
   constructor(audioChannelLeft: Float32Array,
               audioChannelRight: Float32Array,
@@ -92,21 +92,27 @@ export class MusicProcess {
     let samples: number[][] = [];
     for (let cantSongs = 0; cantSongs < 60; cantSongs = cantSongs + 1) {
       const pos = Math.floor(Math.random() * this.audioChannelLeft.length);
-      this.audioChannelLeft.set(this.audioChannelLeft.slice(pos, pos + MusicProcess.samplingFrecuency));
-      this.audioChannelRight.set(this.audioChannelRight.slice(pos, pos + MusicProcess.samplingFrecuency));
+      this.audioChannelLeft.set(this.audioChannelLeft.slice(pos,
+                                                            pos +
+                                                            MusicProcess.samplingFrecuency));
+      this.audioChannelRight.set(this.audioChannelRight.slice(pos,
+                                                              pos +
+                                                              MusicProcess.samplingFrecuency));
       samples.push([pos, this.match().length]);
     }
 
     this.sortArrayDj(samples);
     samples = samples.slice(0, 10);
 
-    let sonidos = new Array<Float32Array[]>();
-    let sonidoChannelLeft = new Float32Array(MusicProcess.samplingFrecuency);
-    let sonidoChannelRight = new Float32Array(MusicProcess.samplingFrecuency);
-    samples.forEach(sample => {
+    const sonidos: Float32Array[][] = [];
+    const sonidoChannelLeft = new Float32Array(MusicProcess.samplingFrecuency);
+    const sonidoChannelRight = new Float32Array(MusicProcess.samplingFrecuency);
+    samples.forEach((sample) => {
       const pos = sample[0];
-      sonidoChannelLeft.set(this.audioChannelLeft.slice(pos, pos + MusicProcess.samplingFrecuency));
-      sonidoChannelRight.set(this.audioChannelRight.slice(pos, pos + MusicProcess.samplingFrecuency));
+      sonidoChannelLeft.set(this.audioChannelLeft.slice(pos,
+                                                        pos + MusicProcess.samplingFrecuency));
+      sonidoChannelRight.set(this.audioChannelRight.slice(pos,
+                                                          pos + MusicProcess.samplingFrecuency));
       sonidos.push([this.float32Copy(sonidoChannelLeft), this.float32Copy(sonidoChannelRight)]);
     });
     this.mix.addSongsChannels(sonidos);

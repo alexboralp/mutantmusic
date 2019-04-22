@@ -52,13 +52,15 @@ var MusicProcess = /** @class */ (function () {
         var samples = [];
         for (var cantSongs = 0; cantSongs < 60; cantSongs = cantSongs + 1) {
             var pos = Math.floor(Math.random() * this.audioChannelLeft.length);
-            this.audioChannelLeft.set(this.audioChannelLeft.slice(pos, pos + MusicProcess.samplingFrecuency));
-            this.audioChannelRight.set(this.audioChannelRight.slice(pos, pos + MusicProcess.samplingFrecuency));
+            this.audioChannelLeft.set(this.audioChannelLeft.slice(pos, pos +
+                MusicProcess.samplingFrecuency));
+            this.audioChannelRight.set(this.audioChannelRight.slice(pos, pos +
+                MusicProcess.samplingFrecuency));
             samples.push([pos, this.match().length]);
         }
         this.sortArrayDj(samples);
         samples = samples.slice(0, 10);
-        var sonidos = new Array();
+        var sonidos = [];
         var sonidoChannelLeft = new Float32Array(MusicProcess.samplingFrecuency);
         var sonidoChannelRight = new Float32Array(MusicProcess.samplingFrecuency);
         samples.forEach(function (sample) {

@@ -18,13 +18,13 @@ export class MusicMix {
   private audioChannelRight: Float32Array;
 
   // Las canciones con las que se va a realizar el mix
-  private canciones: Array<Float32Array[]>;
+  private canciones: Float32Array[][];
 
   // Constructor de la clase
   constructor() {
     this.audioChannelLeft = new Float32Array(0);
     this.audioChannelRight = new Float32Array(0);
-    this.canciones = new Array<Float32Array[]>();
+    this.canciones = [];
   }
 
   /**
@@ -58,7 +58,7 @@ export class MusicMix {
    * Agrega varias canciones o sonidos a las canciones base para hacer el mix.
    * @param canciones Las canciones o sonidos que se desea agregar.
    */
-  public addSongsChannels(canciones: Array<Float32Array[]>) {
+  public addSongsChannels(canciones: Float32Array[][]) {
     this.canciones = this.canciones.concat(canciones);
   }
 

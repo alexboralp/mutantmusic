@@ -13,7 +13,7 @@ var MusicMix = /** @class */ (function () {
     function MusicMix() {
         this.audioChannelLeft = new Float32Array(0);
         this.audioChannelRight = new Float32Array(0);
-        this.canciones = new Array();
+        this.canciones = [];
     }
     /**
      * Agrega una canción o sonido a las canciones base para hacer el mix.
