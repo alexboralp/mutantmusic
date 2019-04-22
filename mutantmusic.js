@@ -19,6 +19,7 @@ console.log('Leyendo...');
 var error = false;
 var cancion1;
 var cancion2;
+var nombreArchivo = '';
 try {
     cancion1 = WFM.WavFileManager.readWAV(archivoWAV1);
     cancion2 = WFM.WavFileManager.readWAV(archivoWAV2);
@@ -29,13 +30,38 @@ catch (e) {
 }
 if (!error) {
     var musicprocess = new MP.MusicProcess(cancion1.channelData[0], cancion1.channelData[1], cancion2.channelData[0], cancion2.channelData[1]);
-    console.log('Buscando coincidencias...');
-    var resp = musicprocess.match();
-    for (var _i = 0, resp_1 = resp; _i < resp_1.length; _i++) {
-        var tiempo = resp_1[_i];
-        console.log(tiempo);
+    if (funcion === 'mt') {
+        console.log('Buscando coincidencias...');
+        var resp = musicprocess.match();
+        for (var _i = 0, resp_1 = resp; _i < resp_1.length; _i++) {
+            var tiempo = resp_1[_i];
+            console.log(tiempo);
+        }
+        console.log("Coincidencias: " + resp.length);
+        console.log('Creando el archivo de coincidencias...');
+        var song = musicprocess.getMatchSong();
+        cancion2.channelData[0] = song[0];
+        cancion2.channelData[1] = song[1];
+        nombreArchivo = archivoWAV2.slice(0, archivoWAV2.length - 4) + "_mt.wav";
     }
-    console.log("Coincidencias: " + resp.length);
+    else if (funcion === 'umt') {
+        console.log('Buscando coincidencias...');
+        var resp = musicprocess.match();
+        console.log("Coincidencias: " + resp.length);
+        console.log('Creando el archivo sin coincidencias...');
+        var song = musicprocess.getUnMatchSong();
+        cancion2.channelData[0] = song[0];
+        cancion2.channelData[1] = song[1];
+        nombreArchivo = archivoWAV2.slice(0, archivoWAV2.length - 4) + "_umt.wav";
+    }
+    console.log('Guardando...');
+    try {
+        WFM.WavFileManager.writeWAV(nombreArchivo, cancion2);
+    }
+    catch (e) {
+        console.log("Error al guardar el archivo: " + e);
+        error = true;
+    }
 }
 /*let audioData: WFM.IAudioData;
 let audioMix1: WFM.IAudioData;

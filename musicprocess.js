@@ -12,6 +12,7 @@ var MusicProcess = /** @class */ (function () {
         this.audioChanelRight = audioChanelRight;
         this.audioChanelLeft2 = audioChanelLeft2;
         this.audioChanelRight2 = audioChanelRight2;
+        this.matchTimes = [];
     }
     // Funciones disponibles de la clase
     MusicProcess.prototype.match = function () {
@@ -41,7 +42,8 @@ var MusicProcess = /** @class */ (function () {
                 resp.push(pos / MusicProcess.samplingFrecuency);
             }
         }
-        return this.refinarBusqueda(this.sortArray(resp));
+        this.matchTimes = this.refinarBusqueda(this.sortArray(resp));
+        return this.matchTimes;
     };
     MusicProcess.prototype.unmatch = function () {
     };
@@ -75,6 +77,65 @@ var MusicProcess = /** @class */ (function () {
      */
     MusicProcess.prototype.setAudioChanelRight = function (audioChanelRight) {
         this.audioChanelRight = audioChanelRight;
+    };
+    /**
+     * Devuelve el arreglo con los tiempos en donde hay match.
+     */
+    MusicProcess.prototype.getMatchTimes = function () {
+        return this.matchTimes;
+    };
+    /**
+     * Define el arreglo con los tiempos en donde hay match.
+     * @param matchTimes El nuevo arreglo de tiempos.
+     */
+    MusicProcess.prototype.setMatchTimes = function (matchTimes) {
+        this.matchTimes = matchTimes;
+    };
+    MusicProcess.prototype.getMatchSong = function () {
+        var tamanno = this.matchTimes.length * this.audioChanelLeft2.length;
+        var leftChannel = new Float32Array(tamanno);
+        var rightChannel = new Float32Array(tamanno);
+        for (var pos = 0; pos < this.matchTimes.length; pos = pos + 1) {
+            var begin = Math.floor(this.matchTimes[pos] * MusicProcess.samplingFrecuency);
+            var end = begin + this.audioChanelLeft2.length;
+            leftChannel.set(this.audioChanelLeft.slice(begin, end), Math.floor(pos * this.audioChanelLeft2.length));
+            rightChannel.set(this.audioChanelRight.slice(begin, end), Math.floor(pos * this.audioChanelRight2.length));
+        }
+        return [leftChannel, rightChannel];
+    };
+    MusicProcess.prototype.getUnMatchSong = function () {
+        var tamanno = this.audioChanelLeft.length -
+            this.matchTimes.length * this.audioChanelLeft2.length;
+        var leftChannel = new Float32Array(tamanno);
+        var rightChannel = new Float32Array(tamanno);
+        var posActual = 0;
+        if (this.matchTimes.length === 0) {
+            leftChannel.set(this.audioChanelLeft);
+            rightChannel.set(this.audioChanelRight);
+        }
+        else {
+            for (var pos = 0; pos < this.matchTimes.length + 1; pos = pos + 1) {
+                var begin = void 0;
+                var end = void 0;
+                if (pos !== 0) {
+                    begin = Math.floor(this.matchTimes[pos - 1] * MusicProcess.samplingFrecuency
+                        + this.audioChanelLeft2.length);
+                }
+                else {
+                    begin = 0;
+                }
+                if (pos !== this.matchTimes.length) {
+                    end = Math.floor(this.matchTimes[pos] * MusicProcess.samplingFrecuency);
+                }
+                else {
+                    end = this.audioChanelLeft.length;
+                }
+                leftChannel.set(this.audioChanelLeft.slice(begin, end), posActual);
+                rightChannel.set(this.audioChanelRight.slice(begin, end), posActual);
+                posActual = posActual + end - begin;
+            }
+        }
+        return [leftChannel, rightChannel];
     };
     // Métodos privados
     /*

@@ -22,6 +22,7 @@ console.log('Leyendo...');
 let error: boolean = false;
 let cancion1: WFM.IAudioData;
 let cancion2: WFM.IAudioData;
+let nombreArchivo: string = '';
 
 try {
   cancion1 = WFM.WavFileManager.readWAV(archivoWAV1);
@@ -37,12 +38,36 @@ if (!error) {
                                            cancion2.channelData[0],
                                            cancion2.channelData[1]);
 
-  console.log('Buscando coincidencias...');
-  const resp: number[] = musicprocess.match();
-  for (const tiempo of resp) {
-    console.log(tiempo);
+  if (funcion === 'mt') {
+    console.log('Buscando coincidencias...');
+    const resp: number[] = musicprocess.match();
+    for (const tiempo of resp) {
+      console.log(tiempo);
+    }
+    console.log(`Coincidencias: ${resp.length}`);
+    console.log('Creando el archivo de coincidencias...');
+    const song = musicprocess.getMatchSong();
+    cancion2.channelData[0] = song[0];
+    cancion2.channelData[1] = song[1];
+    nombreArchivo = `${archivoWAV2.slice(0, archivoWAV2.length - 4)}_mt.wav`;
+  } else if (funcion === 'umt') {
+    console.log('Buscando coincidencias...');
+    const resp: number[] = musicprocess.match();
+    console.log(`Coincidencias: ${resp.length}`);
+    console.log('Creando el archivo sin coincidencias...');
+    const song = musicprocess.getUnMatchSong();
+    cancion2.channelData[0] = song[0];
+    cancion2.channelData[1] = song[1];
+    nombreArchivo = `${archivoWAV2.slice(0, archivoWAV2.length - 4)}_umt.wav`;
   }
-  console.log(`Coincidencias: ${resp.length}`);
+
+  console.log('Guardando...');
+  try {
+    WFM.WavFileManager.writeWAV(nombreArchivo, cancion2);
+  } catch (e) {
+    console.log(`Error al guardar el archivo: ${e}`);
+    error = true;
+  }
 }
 
 /*let audioData: WFM.IAudioData;

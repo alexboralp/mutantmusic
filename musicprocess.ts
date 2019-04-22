@@ -26,6 +26,9 @@ export class MusicProcess {
   private audioChanelLeft2: Float32Array;
   private audioChanelRight2: Float32Array;
 
+  // Variable donde se guardarán los tiempos en que la segunda canción hace match
+  private matchTimes: number[];
+
   constructor(audioChanelLeft: Float32Array,
               audioChanelRight: Float32Array,
               audioChanelLeft2: Float32Array,
@@ -34,6 +37,7 @@ export class MusicProcess {
     this.audioChanelRight = audioChanelRight;
     this.audioChanelLeft2 = audioChanelLeft2;
     this.audioChanelRight2 = audioChanelRight2;
+    this.matchTimes = [];
   }
 
   // Funciones disponibles de la clase
@@ -74,7 +78,8 @@ export class MusicProcess {
       }
     }
 
-    return this.refinarBusqueda(this.sortArray(resp));
+    this.matchTimes = this.refinarBusqueda(this.sortArray(resp));
+    return this.matchTimes;
   }
 
   public unmatch() {
@@ -119,6 +124,74 @@ export class MusicProcess {
    */
   public setAudioChanelRight(audioChanelRight: Float32Array) {
     this.audioChanelRight = audioChanelRight;
+  }
+
+  /**
+   * Devuelve el arreglo con los tiempos en donde hay match.
+   */
+  public getMatchTimes(): number[] {
+    return this.matchTimes;
+  }
+
+  /**
+   * Define el arreglo con los tiempos en donde hay match.
+   * @param matchTimes El nuevo arreglo de tiempos.
+   */
+  public setMatchTimes(matchTimes: number[]) {
+    this.matchTimes = matchTimes;
+  }
+
+  public getMatchSong(): Float32Array[] {
+    const tamanno = this.matchTimes.length * this.audioChanelLeft2.length;
+    const leftChannel = new Float32Array(tamanno);
+    const rightChannel = new Float32Array(tamanno);
+
+    for (let pos: number = 0; pos < this.matchTimes.length; pos = pos + 1) {
+      const begin = Math.floor(this.matchTimes[pos] * MusicProcess.samplingFrecuency);
+      const end = begin + this.audioChanelLeft2.length;
+      leftChannel.set(this.audioChanelLeft.slice(begin, end),
+                      Math.floor(pos * this.audioChanelLeft2.length));
+      rightChannel.set(this.audioChanelRight.slice(begin, end),
+                       Math.floor(pos * this.audioChanelRight2.length));
+    }
+
+    return [leftChannel, rightChannel];
+  }
+
+  public getUnMatchSong(): Float32Array[] {
+    const tamanno = this.audioChanelLeft.length -
+                    this.matchTimes.length * this.audioChanelLeft2.length;
+    const leftChannel = new Float32Array(tamanno);
+    const rightChannel = new Float32Array(tamanno);
+
+    let posActual: number = 0;
+
+    if (this.matchTimes.length === 0) {
+      leftChannel.set(this.audioChanelLeft);
+      rightChannel.set(this.audioChanelRight);
+    } else {
+      for (let pos: number = 0; pos < this.matchTimes.length + 1; pos = pos + 1) {
+        let begin: number;
+        let end: number;
+        if (pos !== 0) {
+          begin = Math.floor(this.matchTimes[pos - 1] * MusicProcess.samplingFrecuency
+                             + this.audioChanelLeft2.length);
+        } else {
+          begin = 0;
+        }
+        if (pos !== this.matchTimes.length) {
+          end = Math.floor(this.matchTimes[pos] * MusicProcess.samplingFrecuency);
+        } else {
+          end = this.audioChanelLeft.length;
+        }
+
+        leftChannel.set(this.audioChanelLeft.slice(begin, end), posActual);
+        rightChannel.set(this.audioChanelRight.slice(begin, end), posActual);
+        posActual = posActual + end - begin;
+      }
+    }
+
+    return [leftChannel, rightChannel];
   }
 
   // Métodos privados
