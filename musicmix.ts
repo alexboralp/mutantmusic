@@ -6,7 +6,7 @@
  * de un conjunto de segmentos de música tomados de un archivo wav.
  */
 
-import * as WFM from './wavfilemanager';
+// import * as WFM from './wavfilemanager';
 
 export class MusicMix {
 
@@ -14,32 +14,51 @@ export class MusicMix {
   private static readonly samplingFrecuency: number = 44100;
 
   // Audio de los dos canales de sonido del mix
-  private audioChanelLeft: Float32Array;
-  private audioChanelRight: Float32Array;
+  private audioChannelLeft: Float32Array;
+  private audioChannelRight: Float32Array;
 
   // Las canciones con las que se va a realizar el mix
-  private canciones: WFM.IAudioData[];
+  private canciones: Array<Float32Array[]>;
 
   // Constructor de la clase
   constructor() {
-    this.audioChanelLeft = new Float32Array(0);
-    this.audioChanelRight = new Float32Array(0);
-    this.canciones = [];
+    this.audioChannelLeft = new Float32Array(0);
+    this.audioChannelRight = new Float32Array(0);
+    this.canciones = new Array<Float32Array[]>();
   }
 
   /**
    * Agrega una canción o sonido a las canciones base para hacer el mix.
    * @param cancion La canción que se desea agregar.
    */
-  public addCancion(cancion: WFM.IAudioData) {
-    this.canciones.push(cancion);
+  /*public addSong(cancion: WFM.IAudioData) {
+    this.canciones.push([cancion.channelData[0], cancion.channelData[1]]);
+  }*/
+
+  /**
+   * Agrega una canción dando los dos canales.
+   * @param leftChannel El canal izquierdo de la canción que se desea agregar.
+   * @param rightChannel El canal derecha de la canción que se desea agregar.
+   */
+  public addSongChannels(leftChannel: Float32Array, rightChannel: Float32Array) {
+    this.canciones.push([this.float32Copy(leftChannel), this.float32Copy(rightChannel)]);
   }
 
   /**
    * Agrega varias canciones o sonidos a las canciones base para hacer el mix.
-   * @param canciones La canciones o sonidos que se desea agregar.
+   * @param canciones Las canciones o sonidos que se desea agregar.
    */
-  public addCanciones(canciones: WFM.IAudioData[]) {
+  /*public addSongs(canciones: WFM.IAudioData[]) {
+    canciones.forEach(cancion => {
+      this.canciones.push([cancion.channelData[0], cancion.channelData[1]]);
+    });
+  }*/
+
+  /**
+   * Agrega varias canciones o sonidos a las canciones base para hacer el mix.
+   * @param canciones Las canciones o sonidos que se desea agregar.
+   */
+  public addSongsChannels(canciones: Array<Float32Array[]>) {
     this.canciones = this.canciones.concat(canciones);
   }
 
@@ -51,24 +70,26 @@ export class MusicMix {
   public hacerMixAleatorio(time: number) {
     const largoTotal = time * MusicMix.samplingFrecuency;
 
-    while (this.audioChanelLeft.length < largoTotal) {
+    console.log(this.canciones);
+
+    while (this.audioChannelLeft.length < largoTotal) {
       const efecto = Math.floor(Math.random() * 3);
       const numCancion = Math.floor(Math.random() * this.canciones.length);
 
       switch (efecto) {
         case 0:
-          this.loops(this.canciones[numCancion].channelData[0],
-                     this.canciones[numCancion].channelData[1],
+          this.loops(this.canciones[numCancion][0],
+                     this.canciones[numCancion][1],
                      4 + Math.random() * 3);
           break;
         case 1:
-          this.leftToRightToBoth(this.canciones[numCancion].channelData[0],
-                                 this.canciones[numCancion].channelData[1],
+          this.leftToRightToBoth(this.canciones[numCancion][0],
+                                 this.canciones[numCancion][1],
                                  4);
           break;
         case 2:
-          this.sonidoSilencio(this.canciones[numCancion].channelData[0],
-                              this.canciones[numCancion].channelData[1],
+          this.sonidoSilencio(this.canciones[numCancion][0],
+                              this.canciones[numCancion][1],
                               6 + Math.random() * 4);
           break;
       }
@@ -78,16 +99,16 @@ export class MusicMix {
   /**
    * Repite un audio varias veces hasta cubrir los segundos indicados.
    * Ambos audios deben tener la misma cantidad de samples.
-   * @param audioChanelLeft El canal izquierdo que se quiere copiar.
-   * @param audioChanelRight El canal derecho que se quiere copiar.
+   * @param audioChannelLeft El canal izquierdo que se quiere copiar.
+   * @param audioChannelRight El canal derecho que se quiere copiar.
    * @param time El tiempo en segundos que se quiere que se repita el sonido.
    */
-  public loops(audioChanelLeft: Float32Array, audioChanelRight: Float32Array, time: number) {
-    const numSamples = audioChanelLeft.length;
+  public loops(audioChannelLeft: Float32Array, audioChannelRight: Float32Array, time: number) {
+    const numSamples = audioChannelLeft.length;
 
     // Copia el canal izquierdo y derecho para iniciar el loop
-    let mixChanelLeft = new Float32Array(0);
-    let mixChanelRight = new Float32Array(0);
+    let mixChannelLeft = new Float32Array(0);
+    let mixChannelRight = new Float32Array(0);
 
     // Variables del while
     let duracionWhile: number = 0;
@@ -95,32 +116,32 @@ export class MusicMix {
 
     // Se intercala el sonido con el silencio
     while (duracionWhile < totalLoopSampling) {
-      mixChanelLeft = this.float32Concat(mixChanelLeft, audioChanelLeft);
-      mixChanelRight = this.float32Concat(mixChanelRight, audioChanelRight);
+      mixChannelLeft = this.float32Concat(mixChannelLeft, audioChannelLeft);
+      mixChannelRight = this.float32Concat(mixChannelRight, audioChannelRight);
 
       duracionWhile = duracionWhile + numSamples;
     }
 
     // Se agrega el resultado al mix
-    this.audioChanelLeft = this.float32Concat(this.audioChanelLeft, mixChanelLeft);
-    this.audioChanelRight = this.float32Concat(this.audioChanelRight, mixChanelRight);
+    this.audioChannelLeft = this.float32Concat(this.audioChannelLeft, mixChannelLeft);
+    this.audioChannelRight = this.float32Concat(this.audioChannelRight, mixChannelRight);
   }
 
   /**
    * Realiza un audio que inicia sonando sólo en el canal izquierdo,
    * luego suena sólo el canal derecho y termina sonando los dos
    * canales. Ambos audios deben tener la misma cantidad de samples.
-   * @param audioChanelLeft El canal izquierdo que se quiere copiar.
-   * @param audioChanelRight El canal derecho que se quiere copiar.
+   * @param audioChannelLeft El canal izquierdo que se quiere copiar.
+   * @param audioChannelRight El canal derecho que se quiere copiar.
    * @param time El tiempo en segundos que se quiere que se repita el sonido.
    */
-  public leftToRightToBoth(audioChanelLeft: Float32Array,
-                           audioChanelRight: Float32Array,
+  public leftToRightToBoth(audioChannelLeft: Float32Array,
+                           audioChannelRight: Float32Array,
                            time: number) {
-    const numSamples = audioChanelLeft.length;
+    const numSamples = audioChannelLeft.length;
 
-    let mixChanelLeft = new Float32Array(0);
-    let mixChanelRight = new Float32Array(0);
+    let mixChannelLeft = new Float32Array(0);
+    let mixChannelRight = new Float32Array(0);
 
     // Crea un array de silencio para intercalarlo con el sonido,
     // tiene el mismo tamaño que el audio original
@@ -133,40 +154,40 @@ export class MusicMix {
     // Se intercala el sonido en cada canal con el sonido en ambos canales
     while (duracionWhile < totalLoopSampling) {
       // Copia el canal izquierdo y derecho para iniciar el loop
-      mixChanelLeft = this.float32Concat(mixChanelLeft, audioChanelLeft);
-      mixChanelRight = this.float32Concat(mixChanelRight, silencio);
-      mixChanelLeft = this.float32Concat(mixChanelLeft, silencio);
-      mixChanelRight = this.float32Concat(mixChanelRight, audioChanelRight);
-      mixChanelLeft = this.float32Concat(mixChanelLeft, audioChanelLeft);
-      mixChanelRight = this.float32Concat(mixChanelRight, audioChanelRight);
+      mixChannelLeft = this.float32Concat(mixChannelLeft, audioChannelLeft);
+      mixChannelRight = this.float32Concat(mixChannelRight, silencio);
+      mixChannelLeft = this.float32Concat(mixChannelLeft, silencio);
+      mixChannelRight = this.float32Concat(mixChannelRight, audioChannelRight);
+      mixChannelLeft = this.float32Concat(mixChannelLeft, audioChannelLeft);
+      mixChannelRight = this.float32Concat(mixChannelRight, audioChannelRight);
 
       duracionWhile = duracionWhile + 3 * numSamples;
     }
 
     // Se agrega el resultado al mix
-    this.audioChanelLeft = this.float32Concat(this.audioChanelLeft, mixChanelLeft);
-    this.audioChanelRight = this.float32Concat(this.audioChanelRight, mixChanelRight);
+    this.audioChannelLeft = this.float32Concat(this.audioChannelLeft, mixChannelLeft);
+    this.audioChannelRight = this.float32Concat(this.audioChannelRight, mixChannelRight);
   }
 
   /**
    * Intercala un audio con un silencio con la misma duración varias veces
    * hasta cubrir los segundos indicados. Ambos audios deben tener la misma
    * cantidad de samples.
-   * @param audioChanelLeft El canal izquierdo que se quiere copiar.
-   * @param audioChanelRight El canal derecho que se quiere copiar.
+   * @param audioChannelLeft El canal izquierdo que se quiere copiar.
+   * @param audioChannelRight El canal derecho que se quiere copiar.
    * @param time El tiempo en segundos que se quiere que se repita el sonido.
    */
-  public sonidoSilencio(audioChanelLeft: Float32Array,
-                        audioChanelRight: Float32Array,
+  public sonidoSilencio(audioChannelLeft: Float32Array,
+                        audioChannelRight: Float32Array,
                         time: number) {
-    const numSamples = audioChanelLeft.length;
+    const numSamples = audioChannelLeft.length;
 
     // Copia el canal izquierdo y derecho para iniciar el loop
-    let mixChanelLeft = new Float32Array(0);
-    let mixChanelRight = new Float32Array(0);
+    let mixChannelLeft = new Float32Array(0);
+    let mixChannelRight = new Float32Array(0);
 
     // Crea un array de silencio para intercalarlo con el sonido
-    // const duracionBlanco: number = mixChanelLeft.length;
+    // const duracionBlanco: number = mixChannelLeft.length;
     const silencio = new Float32Array(numSamples);
 
     // Variables del while
@@ -175,17 +196,17 @@ export class MusicMix {
 
     // Se intercala el sonido con el silencio
     while (duracionWhile < totalLoopSampling) {
-      mixChanelLeft = this.float32Concat(mixChanelLeft, audioChanelLeft);
-      mixChanelRight = this.float32Concat(mixChanelRight, audioChanelRight);
-      mixChanelLeft = this.float32Concat(mixChanelLeft, silencio);
-      mixChanelRight = this.float32Concat(mixChanelRight, silencio);
+      mixChannelLeft = this.float32Concat(mixChannelLeft, audioChannelLeft);
+      mixChannelRight = this.float32Concat(mixChannelRight, audioChannelRight);
+      mixChannelLeft = this.float32Concat(mixChannelLeft, silencio);
+      mixChannelRight = this.float32Concat(mixChannelRight, silencio);
 
       duracionWhile = duracionWhile + 2 * numSamples;
     }
 
     // Se agrega el resultado al mix
-    this.audioChanelLeft = this.float32Concat(this.audioChanelLeft, mixChanelLeft);
-    this.audioChanelRight = this.float32Concat(this.audioChanelRight, mixChanelRight);
+    this.audioChannelLeft = this.float32Concat(this.audioChannelLeft, mixChannelLeft);
+    this.audioChannelRight = this.float32Concat(this.audioChannelRight, mixChannelRight);
   }
 
   // Getters y Setters
@@ -193,31 +214,31 @@ export class MusicMix {
   /**
    * Devuelve el canal izquierdo del mix.
    */
-  public getAudioChanelLeft(): Float32Array {
-    return this.audioChanelLeft;
+  public getAudioChannelLeft(): Float32Array {
+    return this.audioChannelLeft;
   }
 
   /**
    * Define el canal izquierdo del mix.
-   * @param audioChanelLeft El nuevo canal izquierdo.
+   * @param audioChannelLeft El nuevo canal izquierdo.
    */
-  public setAudioChanelLeft(audioChanelLeft: Float32Array) {
-    this.audioChanelLeft = audioChanelLeft;
+  public setAudioChannelLeft(audioChannelLeft: Float32Array) {
+    this.audioChannelLeft = audioChannelLeft;
   }
 
   /**
    * Devuelve el canal derecho del mix.
    */
-  public getAudioChanelRight(): Float32Array {
-    return this.audioChanelRight;
+  public getAudioChannelRight(): Float32Array {
+    return this.audioChannelRight;
   }
 
   /**
    * Define el canal derecho del mix.
-   * @param audioChanelLeft El nuevo canal derecho.
+   * @param audioChannelLeft El nuevo canal derecho.
    */
-  public setAudioChanelRight(audioChanelRight: Float32Array) {
-    this.audioChanelRight = audioChanelRight;
+  public setAudioChannelRight(audioChannelRight: Float32Array) {
+    this.audioChannelRight = audioChannelRight;
   }
 
   // Métodos privados
@@ -232,6 +253,18 @@ export class MusicMix {
 
     result.set(first);
     result.set(second, firstLength);
+
+    return result;
+  }
+
+  /*
+   * Concatena dos arrays de tipo Float32Array.
+   * El resultado se devuelve en un nuevo arreglo del mismo tipo.
+   */
+  private float32Copy(first: Float32Array): Float32Array {
+    const result = new Float32Array(first.length);
+
+    result.set(first);
 
     return result;
   }

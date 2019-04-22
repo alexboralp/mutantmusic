@@ -5,6 +5,8 @@
  * Description: Clase que procesa la música
  */
 
+import * as MM from './musicmix';
+
 export class MusicProcess {
 
   // Frecuencia de los samples que se van a trabajar
@@ -19,57 +21,61 @@ export class MusicProcess {
   private static readonly samplesPerSecond: number = 120;
 
   // Audio de los dos canales de la canción original
-  private audioChanelLeft: Float32Array;
-  private audioChanelRight: Float32Array;
+  private audioChannelLeft: Float32Array;
+  private audioChannelRight: Float32Array;
 
   // Audio de los dos canales de la segunda canción
-  private audioChanelLeft2: Float32Array;
-  private audioChanelRight2: Float32Array;
+  private audioChannelLeft2: Float32Array;
+  private audioChannelRight2: Float32Array;
 
   // Variable donde se guardarán los tiempos en que la segunda canción hace match
   private matchTimes: number[];
 
-  constructor(audioChanelLeft: Float32Array,
-              audioChanelRight: Float32Array,
-              audioChanelLeft2: Float32Array,
-              audioChanelRight2: Float32Array) {
-    this.audioChanelLeft = audioChanelLeft;
-    this.audioChanelRight = audioChanelRight;
-    this.audioChanelLeft2 = audioChanelLeft2;
-    this.audioChanelRight2 = audioChanelRight2;
+  // Variable que se utilizará cuando se quiera realizar un mix de la canción.
+  private mix: MM.MusicMix; 
+
+  constructor(audioChannelLeft: Float32Array,
+              audioChannelRight: Float32Array,
+              audioChannelLeft2: Float32Array,
+              audioChannelRight2: Float32Array) {
+    this.audioChannelLeft = audioChannelLeft;
+    this.audioChannelRight = audioChannelRight;
+    this.audioChannelLeft2 = audioChannelLeft2;
+    this.audioChannelRight2 = audioChannelRight2;
     this.matchTimes = [];
+    this.mix = new MM.MusicMix();
   }
 
   // Funciones disponibles de la clase
 
   public match(): number[] {
     const totalSamples = Math.floor(MusicProcess.samplesPerSecond
-                                    * this.audioChanelLeft2.length
+                                    * this.audioChannelLeft2.length
                                     / MusicProcess.samplingFrecuency);
 
     const originales: number[][] = [];
     const resp: number[] = [];
 
     for (let cont = 0; cont < totalSamples; cont = cont + 1) {
-      const pos = Math.floor(Math.random() * this.audioChanelLeft2.length);
-      originales.push([pos, this.audioChanelLeft2[pos], this.audioChanelRight2[pos]]);
+      const pos = Math.floor(Math.random() * this.audioChannelLeft2.length);
+      originales.push([pos, this.audioChannelLeft2[pos], this.audioChannelRight2[pos]]);
     }
 
     const totalSamplesCancion = Math.floor(MusicProcess.samplesPerSecond
-                                           * this.audioChanelLeft.length
+                                           * this.audioChannelLeft.length
                                            / MusicProcess.samplingFrecuency) * 35;
 
     for (let cont = 0; cont < totalSamplesCancion; cont = cont + 1) {
-      const pos = Math.floor(Math.random() * this.audioChanelLeft.length);
+      const pos = Math.floor(Math.random() * this.audioChannelLeft.length);
       let cont2: number = 0;
       let continuar: boolean = true;
       while (continuar && cont2 < totalSamples) {
         const offset = originales[cont2][0];
         continuar = (this.compare(originales[cont2][1],
-                                  this.audioChanelLeft[offset + pos],
+                                  this.audioChannelLeft[offset + pos],
                                   MusicProcess.tolerance) &&
                      this.compare(originales[cont2][2],
-                                  this.audioChanelRight[offset + pos],
+                                  this.audioChannelRight[offset + pos],
                                   MusicProcess.tolerance));
         cont2 = cont2 + 1;
       }
@@ -82,12 +88,31 @@ export class MusicProcess {
     return this.matchTimes;
   }
 
-  public unmatch() {
-
-  }
-
   public dj() {
+    let samples: number[][] = [];
+    for (let cantSongs = 0; cantSongs < 60; cantSongs = cantSongs + 1) {
+      const pos = Math.floor(Math.random() * this.audioChannelLeft.length);
+      this.audioChannelLeft.set(this.audioChannelLeft.slice(pos, pos + MusicProcess.samplingFrecuency));
+      this.audioChannelRight.set(this.audioChannelRight.slice(pos, pos + MusicProcess.samplingFrecuency));
+      samples.push([pos, this.match().length]);
+    }
 
+    this.sortArrayDj(samples);
+    samples = samples.slice(0, 10);
+
+    let sonidos = new Array<Float32Array[]>();
+    let sonidoChannelLeft = new Float32Array(MusicProcess.samplingFrecuency);
+    let sonidoChannelRight = new Float32Array(MusicProcess.samplingFrecuency);
+    samples.forEach(sample => {
+      const pos = sample[0];
+      sonidoChannelLeft.set(this.audioChannelLeft.slice(pos, pos + MusicProcess.samplingFrecuency));
+      sonidoChannelRight.set(this.audioChannelRight.slice(pos, pos + MusicProcess.samplingFrecuency));
+      sonidos.push([this.float32Copy(sonidoChannelLeft), this.float32Copy(sonidoChannelRight)]);
+    });
+    this.mix.addSongsChannels(sonidos);
+    this.mix.hacerMixAleatorio(60);
+
+    return [this.mix.getAudioChannelLeft(), this.mix.getAudioChannelRight()];
   }
 
   public compose() {
@@ -99,31 +124,31 @@ export class MusicProcess {
   /**
    * Devuelve el canal izquierdo del mix.
    */
-  public getAudioChanelLeft(): Float32Array {
-    return this.audioChanelLeft;
+  public getAudioChannelLeft(): Float32Array {
+    return this.audioChannelLeft;
   }
 
   /**
    * Define el canal izquierdo del mix.
-   * @param audioChanelLeft El nuevo canal izquierdo.
+   * @param audioChannelLeft El nuevo canal izquierdo.
    */
-  public setAudioChanelLeft(audioChanelLeft: Float32Array) {
-    this.audioChanelLeft = audioChanelLeft;
+  public setAudioChannelLeft(audioChannelLeft: Float32Array) {
+    this.audioChannelLeft = audioChannelLeft;
   }
 
   /**
    * Devuelve el canal derecho del mix.
    */
-  public getAudioChanelRight(): Float32Array {
-    return this.audioChanelRight;
+  public getAudioChannelRight(): Float32Array {
+    return this.audioChannelRight;
   }
 
   /**
    * Define el canal derecho del mix.
-   * @param audioChanelLeft El nuevo canal derecho.
+   * @param audioChannelLeft El nuevo canal derecho.
    */
-  public setAudioChanelRight(audioChanelRight: Float32Array) {
-    this.audioChanelRight = audioChanelRight;
+  public setAudioChannelRight(audioChannelRight: Float32Array) {
+    this.audioChannelRight = audioChannelRight;
   }
 
   /**
@@ -142,51 +167,51 @@ export class MusicProcess {
   }
 
   public getMatchSong(): Float32Array[] {
-    const tamanno = this.matchTimes.length * this.audioChanelLeft2.length;
+    const tamanno = this.matchTimes.length * this.audioChannelLeft2.length;
     const leftChannel = new Float32Array(tamanno);
     const rightChannel = new Float32Array(tamanno);
 
     for (let pos: number = 0; pos < this.matchTimes.length; pos = pos + 1) {
       const begin = Math.floor(this.matchTimes[pos] * MusicProcess.samplingFrecuency);
-      const end = begin + this.audioChanelLeft2.length;
-      leftChannel.set(this.audioChanelLeft.slice(begin, end),
-                      Math.floor(pos * this.audioChanelLeft2.length));
-      rightChannel.set(this.audioChanelRight.slice(begin, end),
-                       Math.floor(pos * this.audioChanelRight2.length));
+      const end = begin + this.audioChannelLeft2.length;
+      leftChannel.set(this.audioChannelLeft.slice(begin, end),
+                      Math.floor(pos * this.audioChannelLeft2.length));
+      rightChannel.set(this.audioChannelRight.slice(begin, end),
+                       Math.floor(pos * this.audioChannelRight2.length));
     }
 
     return [leftChannel, rightChannel];
   }
 
   public getUnMatchSong(): Float32Array[] {
-    const tamanno = this.audioChanelLeft.length -
-                    this.matchTimes.length * this.audioChanelLeft2.length;
+    const tamanno = this.audioChannelLeft.length -
+                    this.matchTimes.length * this.audioChannelLeft2.length;
     const leftChannel = new Float32Array(tamanno);
     const rightChannel = new Float32Array(tamanno);
 
     let posActual: number = 0;
 
     if (this.matchTimes.length === 0) {
-      leftChannel.set(this.audioChanelLeft);
-      rightChannel.set(this.audioChanelRight);
+      leftChannel.set(this.audioChannelLeft);
+      rightChannel.set(this.audioChannelRight);
     } else {
       for (let pos: number = 0; pos < this.matchTimes.length + 1; pos = pos + 1) {
         let begin: number;
         let end: number;
         if (pos !== 0) {
           begin = Math.floor(this.matchTimes[pos - 1] * MusicProcess.samplingFrecuency
-                             + this.audioChanelLeft2.length);
+                             + this.audioChannelLeft2.length);
         } else {
           begin = 0;
         }
         if (pos !== this.matchTimes.length) {
           end = Math.floor(this.matchTimes[pos] * MusicProcess.samplingFrecuency);
         } else {
-          end = this.audioChanelLeft.length;
+          end = this.audioChannelLeft.length;
         }
 
-        leftChannel.set(this.audioChanelLeft.slice(begin, end), posActual);
-        rightChannel.set(this.audioChanelRight.slice(begin, end), posActual);
+        leftChannel.set(this.audioChannelLeft.slice(begin, end), posActual);
+        rightChannel.set(this.audioChannelRight.slice(begin, end), posActual);
         posActual = posActual + end - begin;
       }
     }
@@ -231,7 +256,7 @@ export class MusicProcess {
 
     const refinado: number[] = [];
     let pos: number = 0;
-    const tiempoSample = this.audioChanelLeft2.length / MusicProcess.samplingFrecuency;
+    const tiempoSample = this.audioChannelLeft2.length / MusicProcess.samplingFrecuency;
 
     while (pos < tiempos.length - MusicProcess.repeticiones) {
       if (this.compare(tiempos[pos],
@@ -268,6 +293,33 @@ export class MusicProcess {
       }
       return 0;
     });
+  }
+
+  /**
+   * Función que ordena un array de enteros por el segundo valor del elemento.
+   * @param pSong Array que se quiere ordenar.
+   */
+  private sortArrayDj(tiempos: number[][]) {
+    return tiempos.sort((time1, time2) => {
+      if (time1[1] > time2[1]) {
+        return -1;
+      }
+      if (time1[1] < time2[1]) {
+        return 1;
+      }
+      return 0;
+    });
+  }
+
+  /*
+   * Hace una copia de un array de tipo Float32Array.
+   */
+  private float32Copy(first: Float32Array): Float32Array {
+    const result = new Float32Array(first.length);
+
+    result.set(first);
+
+    return result;
   }
 
 }

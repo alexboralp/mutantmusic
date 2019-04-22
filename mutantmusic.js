@@ -54,6 +54,13 @@ if (!error) {
         cancion2.channelData[1] = song[1];
         nombreArchivo = archivoWAV2.slice(0, archivoWAV2.length - 4) + "_umt.wav";
     }
+    else if (funcion === 'dj') {
+        console.log('Creando el mix de la canción...');
+        var song = musicprocess.dj();
+        cancion2.channelData[0] = song[0];
+        cancion2.channelData[1] = song[1];
+        nombreArchivo = archivoWAV2.slice(0, archivoWAV2.length - 4) + "_dj.wav";
+    }
     console.log('Guardando...');
     try {
         WFM.WavFileManager.writeWAV(nombreArchivo, cancion2);
