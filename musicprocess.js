@@ -18,35 +18,63 @@ var MusicProcess = /** @class */ (function () {
     }
     // Funciones disponibles de la clase
     MusicProcess.prototype.match = function () {
-        var totalSamples = Math.floor(MusicProcess.samplesPerSecond
+        var totalSamples = Math.floor(MusicProcess.samplesPerSecondToCompare
             * this.audioChannelLeft2.length
             / MusicProcess.samplingFrecuency);
         var originales = [];
         var resp = [];
+        console.log('Sacando los samples del segundo audio...');
         for (var cont = 0; cont < totalSamples; cont = cont + 1) {
-            var pos = Math.floor(Math.random() * this.audioChannelLeft2.length);
-            originales.push([pos, this.audioChannelLeft2[pos], this.audioChannelRight2[pos]]);
+            var pos = MusicProcess.averageInterval + Math.floor(Math.random() * (this.audioChannelLeft2.length - 2 * MusicProcess.averageInterval));
+            originales.push([pos, this.getAverageValue(pos, this.audioChannelLeft2), this.getAverageValue(pos, this.audioChannelRight2)]);
         }
-        var totalSamplesCancion = Math.floor(MusicProcess.samplesPerSecond
+        var totalSamplesCancion = Math.floor(MusicProcess.samplesPerSecondSong
             * this.audioChannelLeft.length
-            / MusicProcess.samplingFrecuency) * 35;
+            / MusicProcess.samplingFrecuency);
+        console.log('Comparando con los samples de la canción original...');
         for (var cont = 0; cont < totalSamplesCancion; cont = cont + 1) {
-            var pos = Math.floor(Math.random() * this.audioChannelLeft.length);
+            var pos = Math.floor(Math.random() * (this.audioChannelLeft.length - this.audioChannelLeft2.length));
             var cont2 = 0;
             var continuar = true;
             while (continuar && cont2 < totalSamples) {
                 var offset = originales[cont2][0];
-                continuar = (this.compare(originales[cont2][1], this.audioChannelLeft[offset + pos], MusicProcess.tolerance) &&
-                    this.compare(originales[cont2][2], this.audioChannelRight[offset + pos], MusicProcess.tolerance));
+                continuar = (this.compare(originales[cont2][1], this.getAverageValue(offset + pos, this.audioChannelLeft), MusicProcess.tolerance) &&
+                    this.compare(originales[cont2][2], this.getAverageValue(offset + pos, this.audioChannelRight), MusicProcess.tolerance));
                 cont2 = cont2 + 1;
             }
+            //console.log(cont + ', ' + totalSamplesCancion);
             if (continuar) {
                 resp.push(pos / MusicProcess.samplingFrecuency);
             }
         }
+        console.log('Valores encontrados:');
+        console.log(resp);
+        console.log('Refinando la búsqueda...');
         this.matchTimes = this.refinarBusqueda(this.sortArray(resp));
         return this.matchTimes;
     };
+    /*private getAverageValue(pos: number, array: Float32Array): number {
+      let average: number = 0;
+      let newPos: number;
+      for (let rep = 0; rep < MusicProcess.samplesAverage; rep = rep + 1){
+        do {
+          newPos = pos + Math.floor(Math.random() * MusicProcess.averageInterval - MusicProcess.averageInterval / 2);
+        }while (newPos >= array.length);
+        average = average + array[newPos];
+      }
+      return average / MusicProcess.samplesAverage;
+    }*/
+    MusicProcess.prototype.getAverageValue = function (pos, array) {
+        var average = 0;
+        for (var newPos = pos - MusicProcess.averageInterval; newPos < pos + MusicProcess.averageInterval; newPos = newPos + 1) {
+            average = average + array[newPos];
+        }
+        return average / (2 * MusicProcess.averageInterval);
+    };
+    /**
+     * Busca los diez segundos que más se repiten en la canción y
+     * los utiliza para realizar un mix.
+     */
     MusicProcess.prototype.dj = function () {
         var _this = this;
         var samples = [];
@@ -115,6 +143,9 @@ var MusicProcess = /** @class */ (function () {
     MusicProcess.prototype.setMatchTimes = function (matchTimes) {
         this.matchTimes = matchTimes;
     };
+    /**
+     * Devuelve la canción tomando sólo las partes donde hubo match.
+     */
     MusicProcess.prototype.getMatchSong = function () {
         var tamanno = this.matchTimes.length * this.audioChannelLeft2.length;
         var leftChannel = new Float32Array(tamanno);
@@ -127,6 +158,9 @@ var MusicProcess = /** @class */ (function () {
         }
         return [leftChannel, rightChannel];
     };
+    /**
+     * Devuelve la canción quitando las partes donde hubo match.
+     */
     MusicProcess.prototype.getUnMatchSong = function () {
         var tamanno = this.audioChannelLeft.length -
             this.matchTimes.length * this.audioChannelLeft2.length;
@@ -173,7 +207,7 @@ var MusicProcess = /** @class */ (function () {
         result.set(second, firstLength);
         return result;
     };
-    /*
+    /**
      * Función que realiza la comparación de dos números,
      * se considera que los valores son iguales si se encuentran
      * a una distancia menor a la tolerancia definida
@@ -186,6 +220,11 @@ var MusicProcess = /** @class */ (function () {
         }
         return false;
     };
+    /**
+     * Toma los valores en donde se dio el match y los refina quitando los puntos
+     * que están muy cercanos (repetidos).
+     * @param tiempos El arreglo con los tiempos en que se dio match.
+     */
     MusicProcess.prototype.refinarBusqueda = function (tiempos) {
         if (tiempos.length < 2) {
             return tiempos;
@@ -238,24 +277,39 @@ var MusicProcess = /** @class */ (function () {
             return 0;
         });
     };
-    /*
+    /**
      * Hace una copia de un array de tipo Float32Array.
+     * @param original Arreglo original que se desea copiar.
      */
-    MusicProcess.prototype.float32Copy = function (first) {
-        var result = new Float32Array(first.length);
-        result.set(first);
+    MusicProcess.prototype.float32Copy = function (original) {
+        var result = new Float32Array(original.length);
+        result.set(original);
         return result;
     };
+    /* Nivel de confianza.
+     * El valor estará entre 0 y 1.
+     * 0 significa que considerará que todos los sonidos son iguales.
+     * 1 significa que sólo una coincidencia (casi) exacta funcionará.
+     * Entre mayor confianza los resultados serán más exactos pero durará más.
+     * Entre menos confianza se presentarán más falsos positivos pero durará menos.
+     */
+    // private static readonly confianza: number = 0.9;
     // Frecuencia de los samples que se van a trabajar
     MusicProcess.samplingFrecuency = 44100;
-    // Frecuencia de los samples que se van a trabajar
-    MusicProcess.tolerance = 0.2;
+    // Tolerancia para considerar que dos valores son iguales
+    MusicProcess.tolerance = 0.15;
     // Cantidad de repeticiones para considerar que el sonido sí es igual
     MusicProcess.repeticiones = 1;
     // Tiempo entre las repeticiones para considerar que el sonido sí es igual
     MusicProcess.toleranceTime = 0.3;
-    // Frecuencia de los samples que se van a trabajar
-    MusicProcess.samplesPerSecond = 120;
+    // Cantidad de samples por segundo que se van a obtener del segundo sonido para comparar
+    MusicProcess.samplesPerSecondToCompare = 30;
+    // Cantidad de samples por segundo que se van a trabajar de la canción original
+    MusicProcess.samplesPerSecondSong = 20000;
+    // Cantidad de samples que se utilizarán para sacar el promedio alrededor del sample anterior.
+    // private static readonly samplesAverage: number = 20;
+    // Intervalo alrededor del sample original donde se tomarán los samples para el promedio, 10 puntos antes y 10 puntos después.
+    MusicProcess.averageInterval = 10;
     return MusicProcess;
 }());
 exports.MusicProcess = MusicProcess;

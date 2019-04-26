@@ -8,17 +8,31 @@
 import * as MM from './musicmix';
 
 export class MusicProcess {
+  /* Nivel de confianza.
+   * El valor estará entre 0 y 1.
+   * 0 significa que considerará que todos los sonidos son iguales.
+   * 1 significa que sólo una coincidencia (casi) exacta funcionará.
+   * Entre mayor confianza los resultados serán más exactos pero durará más.
+   * Entre menos confianza se presentarán más falsos positivos pero durará menos.
+   */
+  // private static readonly confianza: number = 0.9;
 
   // Frecuencia de los samples que se van a trabajar
   private static readonly samplingFrecuency: number = 44100;
-  // Frecuencia de los samples que se van a trabajar
-  private static readonly tolerance: number = 0.2;
+  // Tolerancia para considerar que dos valores son iguales
+  private static readonly tolerance: number = 0.15;
   // Cantidad de repeticiones para considerar que el sonido sí es igual
   private static readonly repeticiones: number = 1;
   // Tiempo entre las repeticiones para considerar que el sonido sí es igual
   private static readonly toleranceTime: number = 0.3;
-  // Frecuencia de los samples que se van a trabajar
-  private static readonly samplesPerSecond: number = 120;
+  // Cantidad de samples por segundo que se van a obtener del segundo sonido para comparar
+  private static readonly samplesPerSecondToCompare: number = 30;
+  // Cantidad de samples por segundo que se van a trabajar de la canción original
+  private static readonly samplesPerSecondSong: number = 20000;
+  // Cantidad de samples que se utilizarán para sacar el promedio alrededor del sample anterior.
+  // private static readonly samplesAverage: number = 20;
+  // Intervalo alrededor del sample original donde se tomarán los samples para el promedio, 10 puntos antes y 10 puntos después.
+  private static readonly averageInterval: number = 10;
 
   // Audio de los dos canales de la canción original
   private audioChannelLeft: Float32Array;
@@ -49,45 +63,76 @@ export class MusicProcess {
   // Funciones disponibles de la clase
 
   public match(): number[] {
-    const totalSamples = Math.floor(MusicProcess.samplesPerSecond
+    const totalSamples = Math.floor(MusicProcess.samplesPerSecondToCompare
                                     * this.audioChannelLeft2.length
                                     / MusicProcess.samplingFrecuency);
 
     const originales: number[][] = [];
     const resp: number[] = [];
 
+    console.log('Sacando los samples del segundo audio...');
+
     for (let cont = 0; cont < totalSamples; cont = cont + 1) {
-      const pos = Math.floor(Math.random() * this.audioChannelLeft2.length);
-      originales.push([pos, this.audioChannelLeft2[pos], this.audioChannelRight2[pos]]);
+      const pos = MusicProcess.averageInterval + Math.floor(Math.random() * (this.audioChannelLeft2.length - 2 * MusicProcess.averageInterval));
+      originales.push([pos, this.getAverageValue(pos, this.audioChannelLeft2), this.getAverageValue(pos, this.audioChannelRight2)]);
     }
 
-    const totalSamplesCancion = Math.floor(MusicProcess.samplesPerSecond
+    const totalSamplesCancion = Math.floor(MusicProcess.samplesPerSecondSong
                                            * this.audioChannelLeft.length
-                                           / MusicProcess.samplingFrecuency) * 35;
+                                           / MusicProcess.samplingFrecuency);
+
+    console.log('Comparando con los samples de la canción original...');
 
     for (let cont = 0; cont < totalSamplesCancion; cont = cont + 1) {
-      const pos = Math.floor(Math.random() * this.audioChannelLeft.length);
+      const pos = Math.floor(Math.random() * (this.audioChannelLeft.length - this.audioChannelLeft2.length));
       let cont2: number = 0;
       let continuar: boolean = true;
       while (continuar && cont2 < totalSamples) {
         const offset = originales[cont2][0];
         continuar = (this.compare(originales[cont2][1],
-                                  this.audioChannelLeft[offset + pos],
+                                  this.getAverageValue(offset + pos, this.audioChannelLeft),
                                   MusicProcess.tolerance) &&
                      this.compare(originales[cont2][2],
-                                  this.audioChannelRight[offset + pos],
+                                  this.getAverageValue(offset + pos, this.audioChannelRight),
                                   MusicProcess.tolerance));
         cont2 = cont2 + 1;
       }
+      //console.log(cont + ', ' + totalSamplesCancion);
       if (continuar) {
         resp.push(pos / MusicProcess.samplingFrecuency);
       }
     }
-
+    console.log('Valores encontrados:');
+    console.log(resp);
+    console.log('Refinando la búsqueda...');
     this.matchTimes = this.refinarBusqueda(this.sortArray(resp));
     return this.matchTimes;
   }
 
+  /*private getAverageValue(pos: number, array: Float32Array): number {
+    let average: number = 0;
+    let newPos: number;
+    for (let rep = 0; rep < MusicProcess.samplesAverage; rep = rep + 1){
+      do {
+        newPos = pos + Math.floor(Math.random() * MusicProcess.averageInterval - MusicProcess.averageInterval / 2);
+      }while (newPos >= array.length);
+      average = average + array[newPos];
+    }
+    return average / MusicProcess.samplesAverage;
+  }*/
+
+  private getAverageValue(pos: number, array: Float32Array): number {
+    let average: number = 0;
+    for (let newPos = pos - MusicProcess.averageInterval; newPos < pos + MusicProcess.averageInterval; newPos = newPos + 1){
+      average = average + array[newPos];
+    }
+    return average / (2 * MusicProcess.averageInterval);
+  }
+
+  /**
+   * Busca los diez segundos que más se repiten en la canción y
+   * los utiliza para realizar un mix.
+   */
   public dj() {
     let samples: number[][] = [];
     for (let cantSongs = 0; cantSongs < 60; cantSongs = cantSongs + 1) {
@@ -172,6 +217,9 @@ export class MusicProcess {
     this.matchTimes = matchTimes;
   }
 
+  /**
+   * Devuelve la canción tomando sólo las partes donde hubo match.
+   */
   public getMatchSong(): Float32Array[] {
     const tamanno = this.matchTimes.length * this.audioChannelLeft2.length;
     const leftChannel = new Float32Array(tamanno);
@@ -189,6 +237,9 @@ export class MusicProcess {
     return [leftChannel, rightChannel];
   }
 
+  /**
+   * Devuelve la canción quitando las partes donde hubo match.
+   */
   public getUnMatchSong(): Float32Array[] {
     const tamanno = this.audioChannelLeft.length -
                     this.matchTimes.length * this.audioChannelLeft2.length;
@@ -241,7 +292,7 @@ export class MusicProcess {
     return result;
   }
 
-  /*
+  /**
    * Función que realiza la comparación de dos números,
    * se considera que los valores son iguales si se encuentran
    * a una distancia menor a la tolerancia definida
@@ -255,6 +306,11 @@ export class MusicProcess {
     return false;
   }
 
+  /**
+   * Toma los valores en donde se dio el match y los refina quitando los puntos
+   * que están muy cercanos (repetidos).
+   * @param tiempos El arreglo con los tiempos en que se dio match.
+   */
   private refinarBusqueda(tiempos: number[]): number[] {
     if (tiempos.length < 2) {
       return tiempos;
@@ -317,13 +373,14 @@ export class MusicProcess {
     });
   }
 
-  /*
+  /**
    * Hace una copia de un array de tipo Float32Array.
+   * @param original Arreglo original que se desea copiar.
    */
-  private float32Copy(first: Float32Array): Float32Array {
-    const result = new Float32Array(first.length);
+  private float32Copy(original: Float32Array): Float32Array {
+    const result = new Float32Array(original.length);
 
-    result.set(first);
+    result.set(original);
 
     return result;
   }
