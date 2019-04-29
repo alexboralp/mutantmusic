@@ -47,15 +47,16 @@ var MusicMix = /** @class */ (function () {
         this.canciones = this.canciones.concat(canciones);
     };
     /**
-     * Crea el mix tomando de manera aleatoria el efecto y la canción o sonido
+     * Crea el mix tomando intercambiando el efecto y tomando de manera aleatoria la canción o sonido
      * para cada una de las partes de la nueva canción hasta que complete el tiempo indicado.
      * @param time El tiempo de la canción que se desea realizar.
      */
     MusicMix.prototype.hacerMixAleatorio = function (time) {
         var largoTotal = time * MusicMix.samplingFrecuency;
-        console.log(this.canciones);
+        var efecto = -1;
         while (this.leftChannel.length < largoTotal) {
-            var efecto = Math.floor(Math.random() * 3);
+            efecto = efecto + 1;
+            efecto = efecto % MusicMix.numEffects;
             var numCancion = Math.floor(Math.random() * this.canciones.length);
             switch (efecto) {
                 case 0:
@@ -163,27 +164,27 @@ var MusicMix = /** @class */ (function () {
     /**
      * Devuelve el canal izquierdo del mix.
      */
-    MusicMix.prototype.getleftChannel = function () {
+    MusicMix.prototype.getLeftChannel = function () {
         return this.leftChannel;
     };
     /**
      * Define el canal izquierdo del mix.
      * @param leftChannel El nuevo canal izquierdo.
      */
-    MusicMix.prototype.setleftChannel = function (leftChannel) {
+    MusicMix.prototype.setLeftChannel = function (leftChannel) {
         this.leftChannel = leftChannel;
     };
     /**
      * Devuelve el canal derecho del mix.
      */
-    MusicMix.prototype.getrightChannel = function () {
+    MusicMix.prototype.getRightChannel = function () {
         return this.rightChannel;
     };
     /**
      * Define el canal derecho del mix.
      * @param leftChannel El nuevo canal derecho.
      */
-    MusicMix.prototype.setrightChannel = function (rightChannel) {
+    MusicMix.prototype.setRightChannel = function (rightChannel) {
         this.rightChannel = rightChannel;
     };
     // Métodos privados
@@ -209,6 +210,8 @@ var MusicMix = /** @class */ (function () {
     };
     // Frecuencia de los samples que se van a trabajar
     MusicMix.samplingFrecuency = 44100;
+    // Cantidad total de efectos disponibles
+    MusicMix.numEffects = 3;
     return MusicMix;
 }());
 exports.MusicMix = MusicMix;

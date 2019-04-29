@@ -12,6 +12,8 @@ export class MusicMix {
 
   // Frecuencia de los samples que se van a trabajar
   private static readonly samplingFrecuency: number = 44100;
+  // Cantidad total de efectos disponibles
+  private static readonly numEffects: number = 3;
 
   // Audio de los dos canales de sonido del mix
   private leftChannel: Float32Array;
@@ -63,17 +65,18 @@ export class MusicMix {
   }
 
   /**
-   * Crea el mix tomando de manera aleatoria el efecto y la canción o sonido
+   * Crea el mix tomando intercambiando el efecto y tomando de manera aleatoria la canción o sonido
    * para cada una de las partes de la nueva canción hasta que complete el tiempo indicado.
    * @param time El tiempo de la canción que se desea realizar.
    */
   public hacerMixAleatorio(time: number) {
     const largoTotal = time * MusicMix.samplingFrecuency;
 
-    console.log(this.canciones);
+    let efecto: number = -1;
 
     while (this.leftChannel.length < largoTotal) {
-      const efecto = Math.floor(Math.random() * 3);
+      efecto = efecto + 1;
+      efecto = efecto % MusicMix.numEffects;
       const numCancion = Math.floor(Math.random() * this.canciones.length);
 
       switch (efecto) {
@@ -214,7 +217,7 @@ export class MusicMix {
   /**
    * Devuelve el canal izquierdo del mix.
    */
-  public getleftChannel(): Float32Array {
+  public getLeftChannel(): Float32Array {
     return this.leftChannel;
   }
 
@@ -222,14 +225,14 @@ export class MusicMix {
    * Define el canal izquierdo del mix.
    * @param leftChannel El nuevo canal izquierdo.
    */
-  public setleftChannel(leftChannel: Float32Array) {
+  public setLeftChannel(leftChannel: Float32Array) {
     this.leftChannel = leftChannel;
   }
 
   /**
    * Devuelve el canal derecho del mix.
    */
-  public getrightChannel(): Float32Array {
+  public getRightChannel(): Float32Array {
     return this.rightChannel;
   }
 
@@ -237,7 +240,7 @@ export class MusicMix {
    * Define el canal derecho del mix.
    * @param leftChannel El nuevo canal derecho.
    */
-  public setrightChannel(rightChannel: Float32Array) {
+  public setRightChannel(rightChannel: Float32Array) {
     this.rightChannel = rightChannel;
   }
 
