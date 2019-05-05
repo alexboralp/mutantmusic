@@ -398,24 +398,26 @@ var MusicProcess = /** @class */ (function () {
     };
     /**
      * Obtiene los tiempos de las partes que más se repiten de la primera canción.
-     * Básicamente divide la canción de acuerdo al tiempo indicado y revisa la cantidad de
-     * repeticiones de dicha parte, se evita repetir partes que ya se revisaron.
+     * Básicamente divide la canción de acuerdo al tiempo indicado y obtiene 60 partes
+     * de forma aleatoria revisando la cantidad de repeticiones de
+     * cada parte, se evita repetir partes que ya se revisaron.
      */
     MusicProcess.prototype.getDJTimes = function (time) {
         var times = [];
         var usedTimes = {};
-        var max = this.leftChannel.length / time - 1;
+        // Valor máximo para el random
+        var max = Math.floor(this.leftChannel.length / time - 1);
         var posLeft1 = 0;
         var posLeft2 = 0;
         var posRight1 = 0;
         var posRight2 = 0;
-        for (var cantPartes = 0; cantPartes < max; cantPartes = cantPartes + 1) {
-            var minTime = cantPartes * MusicProcess.samplingFrecuency;
+        for (var cantPartes = 0; cantPartes < MusicProcess.mixNumParts; cantPartes = cantPartes + 1) {
+            var minTime = Math.floor((Math.random() * max)) * MusicProcess.samplingFrecuency;
             // Si no se ha revisado el tiempo
             if (!usedTimes[minTime]) {
                 // Se marca como revisado
                 usedTimes[minTime] = true;
-                var maxTime = (cantPartes + 1) * MusicProcess.samplingFrecuency;
+                var maxTime = minTime + time;
                 posLeft1 = posLeft2;
                 posRight1 = posRight2;
                 while (this.leftChannelBeats[posLeft2] < maxTime) {
@@ -437,7 +439,9 @@ var MusicProcess = /** @class */ (function () {
             }
         }
         this.sortArrayBySecondPos(times);
-        times = times.slice(0, 10);
+        if (times.length > 10) {
+            times = times.slice(times.length - 10);
+        }
         return times;
     };
     /**
@@ -476,6 +480,8 @@ var MusicProcess = /** @class */ (function () {
     // Porcentaje de igualdad entre la canción original y el sample para
     // considerarlas que hicieron match
     MusicProcess.succesPercentage = 0.80;
+    // Cantidad de partes de la canción que se revisan para hacer el mix
+    MusicProcess.mixNumParts = 60;
     return MusicProcess;
 }());
 exports.MusicProcess = MusicProcess;

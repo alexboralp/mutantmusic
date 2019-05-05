@@ -33,6 +33,8 @@ export class MusicProcess {
   // Porcentaje de igualdad entre la canción original y el sample para
   // considerarlas que hicieron match
   private static readonly succesPercentage: number = 0.80;
+  // Cantidad de partes de la canción que se revisan para hacer el mix
+  private static readonly mixNumParts: number = 60;
 
   // Audio de los dos canales de la canción original
   private leftChannel: Float32Array;
@@ -517,29 +519,31 @@ export class MusicProcess {
 
   /**
    * Obtiene los tiempos de las partes que más se repiten de la primera canción.
-   * Básicamente divide la canción de acuerdo al tiempo indicado y revisa la cantidad de
-   * repeticiones de dicha parte, se evita repetir partes que ya se revisaron.
+   * Básicamente divide la canción de acuerdo al tiempo indicado y obtiene 60 partes
+   * de forma aleatoria revisando la cantidad de repeticiones de
+   * cada parte, se evita repetir partes que ya se revisaron.
    */
   private getDJTimes(time: number): number[][] {
     let times: number[][] = [];
     const usedTimes: IHash<boolean> = {};
 
-    const max = this.leftChannel.length / time - 1;
+    // Valor máximo para el random
+    const max = Math.floor(this.leftChannel.length / time - 1);
 
     let posLeft1: number = 0;
     let posLeft2: number = 0;
     let posRight1: number = 0;
     let posRight2: number = 0;
 
-    for (let cantPartes = 0; cantPartes < max; cantPartes = cantPartes + 1) {
-      const minTime = cantPartes * MusicProcess.samplingFrecuency;
+    for (let cantPartes = 0; cantPartes < MusicProcess.mixNumParts; cantPartes = cantPartes + 1) {
+      const minTime = Math.floor((Math.random() * max)) * MusicProcess.samplingFrecuency;
 
       // Si no se ha revisado el tiempo
       if (!usedTimes[minTime]) {
         // Se marca como revisado
         usedTimes[minTime] = true;
 
-        const maxTime = (cantPartes + 1) * MusicProcess.samplingFrecuency;
+        const maxTime = minTime + time;
 
         posLeft1 = posLeft2;
         posRight1 = posRight2;
@@ -565,7 +569,9 @@ export class MusicProcess {
     }
 
     this.sortArrayBySecondPos(times);
-    times = times.slice(0, 10);
+    if (times.length > 10) {
+      times = times.slice(times.length - 10);
+    }
 
     return times;
   }

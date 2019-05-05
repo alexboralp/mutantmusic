@@ -30,9 +30,16 @@
     "typescript": "^3.2.2"
   },
   "dependencies": {
+    "@elastic/elasticsearch": "^7.0.0-rc.2",
+    "@types/elasticsearch": "^5.0.32",
+    "@types/es6-promise": "^3.3.0",
+    "@types/express": "^4.16.1",
+    "elasticsearch": "^16.0.0",
+    "express": "^4.16.4",
     "fft": "0.2.1",
     "fourier-transform": "1.1.2",
     "fs": "0.0.1-security",
+    "get-json": "^1.0.1",
     "jsmidgen": "0.1.5",
     "midi-writer-js": "1.7.1",
     "ts-promise": "^2.1.0",
