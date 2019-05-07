@@ -6,8 +6,10 @@
  */
 
 import * as fs from 'fs';
-import * as WavDecoder from 'wav-decoder';
-import * as WavEncoder from 'wav-encoder';
+const WavEncoder = require("wav-encoder");
+const WavDecoder = require("wav-decoder");
+//import * as WavDecoder from 'wav-decoder';
+//import * as WavEncoder from 'wav-encoder';
 
 export interface IAudioData {
   sampleRate: number;
