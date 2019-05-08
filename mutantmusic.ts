@@ -26,12 +26,7 @@ let nombreArchivo: string = '';
 try {
   cancion1 = WFM.WavFileManager.readWAV(archivoWAV1);
   cancion2 = WFM.WavFileManager.readWAV(archivoWAV2);
-} catch (e) {
-  console.log(`Error al abrir el archivo: ${e}`);
-  error = true;
-}
 
-if (!error) {
   const musicprocess = new MP.MusicProcess(cancion1.channelData[0],
                                            cancion1.channelData[1],
                                            cancion2.channelData[0],
@@ -64,6 +59,12 @@ if (!error) {
     cancion2.channelData[0] = song[0];
     cancion2.channelData[1] = song[1];
     nombreArchivo = `${archivoWAV2.slice(0, archivoWAV2.length - 4)}_dj.wav`;
+  } else if (funcion === 'cmp') {
+    console.log('Creando la composición de la canción...');
+    const song = musicprocess.compose();
+    cancion2.channelData[0] = song[0];
+    cancion2.channelData[1] = song[1];
+    nombreArchivo = `${archivoWAV2.slice(0, archivoWAV2.length - 4)}_cmp.wav`;
   }
 
   console.log('Guardando...');
@@ -73,4 +74,7 @@ if (!error) {
     console.log(`Error al guardar el archivo: ${e}`);
     error = true;
   }
+} catch (e) {
+  console.log(`Error al abrir el archivo: ${e}`);
+  error = true;
 }
