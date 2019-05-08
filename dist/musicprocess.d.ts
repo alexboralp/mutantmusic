@@ -44,6 +44,12 @@ export declare class MusicProcess {
      * y si se encuentra en alguno de estos entonces se lo brinca.
      */
     dj(): [Float32Array, Float32Array];
+    /**
+     * Realiza la composición de la primera canción tomando como envolvente
+     * la segunda canción. Transforma la primera canción por medio de un
+     * algoritmo genético para que su forma cambie a la forma de la primera
+     * canción.
+     */
     compose(): [Float32Array, Float32Array];
     private createSong;
     private DNAProportion;
