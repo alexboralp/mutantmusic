@@ -19,6 +19,7 @@ export declare class MusicProcess {
     private static readonly successEndPercentage;
     private static readonly livePercentage;
     private static readonly mutationPercentage;
+    private static readonly stopGenerationsNumber;
     private static readonly BEAT;
     private static readonly LLANURA;
     private static readonly VALLE;
