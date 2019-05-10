@@ -2,12 +2,10 @@
 
 // Crea una conección a ElasticSearch
 
-var elasticsearch=require('elasticsearch');
+const elasticsearch = require('elasticsearch');
 
-var client = new elasticsearch.Client( {  
-  hosts: [
-    'http://localhost:9200/'
-  ]
+const client = new elasticsearch.Client({
+  hosts: ['http://localhost:9200/']
 });
 
-module.exports = client;  
+module.exports = client;

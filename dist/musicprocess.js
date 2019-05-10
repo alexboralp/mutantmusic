@@ -28,7 +28,7 @@ class MusicProcess {
         this.rightChannel = rightChannel;
         this.leftChannel2 = leftChannel2;
         this.rightChannel2 = rightChannel2;
-        console.log('Preparando la canción...');
+        console.log('Preparing the songs...');
         this.leftChannelBeats = this.getBeatsPerSecond(this.leftChannel);
         this.rightChannelBeats = this.getBeatsPerSecond(this.rightChannel);
         this.leftChannelBeats2 = this.getBeatsPerSecond(this.leftChannel2);
@@ -65,359 +65,98 @@ class MusicProcess {
         this.mix.hacerMixAleatorio(60);
         return [this.mix.getLeftChannel(), this.mix.getRightChannel()];
     }
+    /**
+     * Realiza la composición de la primera canción tomando como envolvente
+     * la segunda canción. Transforma la primera canción por medio de un
+     * algoritmo genético para que su forma cambie a la forma de la primera
+     * canción.
+     */
     compose() {
-        try {
-            this.esCreateIndex();
-        }
-        catch (e) { }
-        let DNASong1 = this.getSongDNA(this.leftChannel, this.rightChannel, this.leftChannelBeats, this.rightChannelBeats);
-        let DNASong2 = this.getSongDNA(this.leftChannel2, this.rightChannel2, this.leftChannelBeats2, this.rightChannelBeats2);
-        // Proporciona el ADN de la segunda canción
-        DNASong2 = this.DNAProportion(DNASong2, DNASong1.length);
-        let distribution = [];
-        // Nomenclatura:
-        /*
-         * L : Llanura
-         * V : Valle
-         * M : Montaña
-         * U : Subida (Uphill)
-         * D : Bajada (Downhill)
-         */
-        this.esBulkSong(DNASong1);
-        let totales = this.esSearch();
-        totales.then((totales) => {
-            let tot = totales.aggregations.byType.buckets;
-            tot.forEach((t) => {
-                distribution.push([t.key, t.doc_count]);
-                console.log(distribution);
-            });
-        });
-        let individuals = this.createIndividuals(DNASong1, MusicProcess.individualsNumber);
-        let bestIndividual = [];
-        let bestPercentage = 0;
-        let seguir = true;
-        let numGenerations = 0;
-        while (seguir) {
-            individuals = this.fitnessOfIndividuals(individuals, DNASong2);
-            bestIndividual = individuals[individuals.length - 1];
-            bestPercentage = this.fitnessOfIndividual(bestIndividual, DNASong2);
-            if (bestPercentage > MusicProcess.successEndPercentage) {
-                seguir = false;
-            }
-            else {
-                numGenerations = numGenerations + 1;
-                if (numGenerations % 10 == 0) {
-                    process.stdout.write("Generations:" + numGenerations + ", best percentage so far: " + bestPercentage + '\r'); // '\033[0G');
-                }
-                // console.log("Best percentage so far: " + bestPercentage);
-                individuals = this.crossIndividuals(individuals, MusicProcess.individualsNumber);
-                this.mutateIndividuals(individuals, DNASong2);
-            }
-        }
-        console.log("Best individual:");
-        console.log(bestIndividual);
-        /*try{
-          this.esDeleteIndex();
-        }catch(e){}*/
-        return this.createSong(bestIndividual, this.leftChannel, this.rightChannel, MusicProcess.sliceSize);
-    }
-    createSong(individual, songLeftChannel, songRightChannel, size) {
-        let totalSize = individual.length * size;
-        let newSongLeftChannel = new Float32Array(totalSize);
-        let newSongRightChannel = new Float32Array(totalSize);
-        for (let pos = 0; pos < individual.length; pos = pos + 1) {
-            const min = individual[pos][0] * size;
-            let max = min + size;
-            if (max > songLeftChannel.length) {
-                max = songLeftChannel.length;
-            }
-            newSongLeftChannel.set(songLeftChannel.slice(min, max), pos * size);
-            newSongRightChannel.set(songRightChannel.slice(min, max), pos * size);
-        }
-        return [newSongLeftChannel, newSongRightChannel];
-    }
-    DNAProportion(DNAOriginal, newSize) {
-        let newDNA = [];
-        let proportion = Math.floor(newSize / DNAOriginal.length);
-        if (proportion > 1) {
-            DNAOriginal.forEach(crom => {
-                for (let rep = 0; rep < proportion; rep = rep + 1) {
-                    newDNA.push([crom[0], crom[1]]);
-                }
-            });
-        }
-        const faltante = newSize - newDNA.length;
-        for (let cont = 0; cont < faltante; cont = cont + 1) {
-            let pos = Math.floor(cont * newDNA.length / faltante);
-            newDNA.splice(pos, 0, [newDNA[pos][0], newDNA[pos][1]]);
-        }
-        return newDNA;
-    }
-    mutateIndividuals(individuals, DNASong) {
-        individuals.forEach(individual => {
-            if (Math.random() < MusicProcess.mutationPercentage) {
-                return this.mutateIndividual(individual, DNASong);
-            }
-        });
-    }
-    mutateIndividual(individual, DNASong) {
-        const pos = Math.floor(Math.random() * individual.length);
-        const posMutation = Math.floor(Math.random() * DNASong.length);
-        individual[pos] = DNASong[posMutation];
-    }
-    fitnessOfIndividuals(individuals, DNASong) {
-        let individualFitness = [];
-        individuals.forEach((individual) => {
-            individualFitness.push([individual, this.fitnessOfIndividual(individual, DNASong)]);
-        });
-        this.sortArrayBySecondPos(individualFitness);
-        const min = (1 - MusicProcess.livePercentage) * individualFitness.length;
-        individualFitness = individualFitness.slice(min);
-        let liveIndividuals = [];
-        individualFitness.forEach(individual => {
-            liveIndividuals.push(individual[0]);
-        });
-        return liveIndividuals;
-    }
-    fitnessOfIndividual(individual, DNASong) {
-        let numMatches = 0;
-        let max = Math.min(individual.length, DNASong.length);
-        for (let pos = 0; pos < max; pos = pos + 1) {
-            if (individual[pos][1] == DNASong[pos][1]) {
-                numMatches = numMatches + 1;
-            }
-        }
-        return numMatches / max;
-    }
-    crossIndividuals(individuals, cant) {
-        let newIndividuals = [];
-        for (let pos = 0; pos < cant; pos = pos + 1) {
-            let posFather = Math.floor(Math.random() * individuals.length);
-            let posMother = Math.floor(Math.random() * individuals.length);
-            newIndividuals.push(this.newSon(individuals[posFather], individuals[posMother]));
-        }
-        return newIndividuals;
-    }
-    newSon(father, mother) {
-        let son = [];
-        for (let cantCrom = 0; cantCrom < father.length; cantCrom = cantCrom + 1) {
-            if (cantCrom % 2 == 0) {
-                son.push(father[cantCrom]);
-            }
-            else {
-                son.push(mother[cantCrom]);
-            }
-        }
-        return son;
-    }
-    createIndividuals(DNASong, cant) {
-        let individuals = [];
-        for (let cont = 0; cont < cant; cont = cont + 1) {
-            individuals.push(this.createIndividual(DNASong));
-        }
-        return individuals;
-    }
-    createIndividual(DNASong) {
-        let individual = [];
-        for (let cont = 0; cont < DNASong.length; cont = cont + 1) {
-            const pos = Math.floor(Math.random() * DNASong.length);
-            individual.push(DNASong[pos]);
-        }
-        return individual;
-    }
-    esSearch() {
         return __awaiter(this, void 0, void 0, function* () {
-            var client = require('./esconnection.js');
-            let response = yield new Promise((resolve, reject) => {
-                resolve(client.search({
-                    index: "song",
-                    type: "part",
-                    body: {
-                        "aggs": {
-                            "byType": {
-                                "terms": {
-                                    "field": "type.keyword"
+            return new Promise((resolve, reject) => {
+                // Crea el índice donde se guardarán los valores del ADN
+                /*let response = this.esCreateIndex();
+                response.catch((err)=>
+                {
+                  console.log("Error while creating the index: " + err);
+                  reject();
+                });
+                response.then((resp)=>
+                {*/
+                const dnaSong1 = this.getSongDNA(this.leftChannel, this.rightChannel, this.leftChannelBeats, this.rightChannelBeats);
+                let dnaSong2 = this.getSongDNA(this.leftChannel2, this.rightChannel2, this.leftChannelBeats2, this.rightChannelBeats2);
+                const totalReducedSongValues = Math.ceil(this.leftChannel.length /
+                    MusicProcess.sliceSize);
+                // Proporciona el ADN de la segunda canción
+                dnaSong2 = this.dnaProportion(dnaSong2, dnaSong1.length);
+                const distribution = [];
+                this.esBulkSong(dnaSong1)
+                    .catch((err) => {
+                    console.log(`Error en el bulk: ${err}`);
+                    reject();
+                })
+                    .then((resp) => {
+                    this.esSearch()
+                        .catch((err) => {
+                        console.log(`Error en el search: ${err}`);
+                        reject();
+                    })
+                        .then((totales) => {
+                        const tot = totales.aggregations.byType.buckets;
+                        tot.forEach((t) => {
+                            distribution.push([t.key, t.doc_count]);
+                        });
+                        let individuals = this.createIndividuals(MusicProcess.individualsNumber, distribution, dnaSong1);
+                        let bestIndividual = [];
+                        let bestPercentage = 0;
+                        let seguir = true;
+                        let numGenerations = 0;
+                        while (seguir) {
+                            individuals = this.fitnessOfIndividuals(individuals, dnaSong1, dnaSong2);
+                            bestIndividual = individuals[individuals.length - 1];
+                            bestPercentage = this.fitnessOfIndividual(bestIndividual, dnaSong1, dnaSong2);
+                            if (bestPercentage > bestIndividual.length * MusicProcess.successEndPercentage) {
+                                seguir = false;
+                            }
+                            else {
+                                numGenerations = numGenerations + 1;
+                                if (numGenerations % 10 === 0) {
+                                    process.stdout.write(`Generations: ${numGenerations}` +
+                                        `, best percentage so far: ${bestPercentage}` +
+                                        ` / ${bestIndividual.length} \r`);
                                 }
+                                individuals = this.crossIndividuals(individuals, MusicProcess.individualsNumber);
+                                individuals = this.mutateIndividuals(individuals, totalReducedSongValues);
                             }
                         }
-                    }
-                }));
-            });
-            return response;
-        });
-    }
-    esBulkSong(DNASong) {
-        return __awaiter(this, void 0, void 0, function* () {
-            var bulk = this.esPrepareBulkData(DNASong);
-            return yield new Promise((resolve, reject) => {
-                resolve(this.indexall(bulk));
-            });
-        });
-    }
-    indexall(madebulk) {
-        return __awaiter(this, void 0, void 0, function* () {
-            var client = require('./esconnection.js');
-            return yield new Promise((resolve, reject) => {
-                resolve(client.bulk({
-                    maxRetries: 5,
-                    index: 'song',
-                    type: 'part',
-                    body: madebulk
-                }));
-            });
-        });
-    }
-    esPrepareBulkData(DNASong) {
-        let bulk = [];
-        DNASong.forEach(part => {
-            bulk.push({ index: { _index: 'song', _type: 'part', _id: part[0] } }, {
-                'type': part[1]
+                        process.stdout.write('\n');
+                        console.log('Done.');
+                        // console.log(bestIndividual);
+                        this.esDeleteIndex()
+                            .catch((err) => {
+                            console.log(`Error al borrar el índice: ${err}`);
+                            reject();
+                        })
+                            .then(() => {
+                            resolve(this.createSong(bestIndividual, this.leftChannel, this.rightChannel, MusicProcess.sliceSize));
+                        })
+                            .catch((err) => {
+                            console.log(`Error: ${err}`);
+                            reject();
+                        });
+                    })
+                        .catch((err) => {
+                        console.log(`Error: ${err}`);
+                        reject();
+                    });
+                })
+                    .catch((err) => {
+                    console.log(`Error: ${err}`);
+                    reject();
+                });
+                // });
             });
         });
-        return bulk;
-    }
-    esCreateIndex() {
-        return __awaiter(this, void 0, void 0, function* () {
-            var client = require('./esconnection.js');
-            yield client.indices.create({
-                index: 'song'
-            }, function (err, resp, status) {
-                if (err) {
-                    console.log(err);
-                }
-                else {
-                    console.log("create", resp);
-                }
-            });
-        });
-    }
-    esDeleteIndex() {
-        return __awaiter(this, void 0, void 0, function* () {
-            var client = require('./esconnection.js');
-            yield client.indices.delete({ index: 'song' }, function (err, resp, status) {
-                console.log("delete", resp);
-            });
-        });
-    }
-    getSongDNA(songLeftChannel, songRightChannel, leftBeats, rightBeats) {
-        const reducedLeftChannel = this.reduceChannelSong(songLeftChannel);
-        const reducedRightChannel = this.reduceChannelSong(songRightChannel);
-        return this.getChannelsSongDNA(reducedLeftChannel, reducedRightChannel, leftBeats, rightBeats);
-    }
-    getChannelsSongDNA(reducedLeftChannel, reducedRightChannel, leftBeats, rightBeats) {
-        const beats = this.refine(this.sortArray(leftBeats.concat(rightBeats)), MusicProcess.tolerance);
-        let resp = [];
-        let min = 0;
-        for (let cont = 0; cont <= beats.length; cont = cont + 1) {
-            let max;
-            if (cont < beats.length) {
-                max = Math.floor(beats[cont] / MusicProcess.sliceSize);
-            }
-            else {
-                max = reducedLeftChannel.length;
-            }
-            if (min != 0 || max == 0) {
-                resp.push([resp.length + 1, "BE"]);
-            }
-            if (min != max) {
-                const respLeft = this.getChannelPartDNA(reducedLeftChannel.slice(min, max));
-                const respRight = this.getChannelPartDNA(reducedRightChannel.slice(min, max));
-                let tipo;
-                if (respLeft[1] > respRight[1]) {
-                    tipo = respLeft[0];
-                }
-                else {
-                    tipo = respRight[0];
-                }
-                let unTercio = Math.floor((max - min) / 3);
-                let dosTercios = Math.floor(2 * (max - min) / 3);
-                if (tipo == 'L') {
-                    if (reducedLeftChannel[unTercio] < 0.33) {
-                        this.llenarArrayDNA(resp, tipo.concat("B"), min, max);
-                    }
-                    else if (reducedLeftChannel[unTercio] < 0.66) {
-                        this.llenarArrayDNA(resp, tipo.concat("M"), min, max);
-                    }
-                    else {
-                        this.llenarArrayDNA(resp, tipo.concat("A"), min, max);
-                    }
-                }
-                else {
-                    this.llenarArrayDNA(resp, tipo.concat("I"), min, min + unTercio);
-                    this.llenarArrayDNA(resp, tipo.concat("M"), min + unTercio, min + dosTercios);
-                    this.llenarArrayDNA(resp, tipo.concat("F"), min + dosTercios, max);
-                }
-            }
-            min = max + 1;
-        }
-        return resp;
-    }
-    llenarArrayDNA(arrayDNA, DNA, min, max) {
-        for (let i = min; i < max; i = i + 1) {
-            arrayDNA.push([arrayDNA.length + 1, DNA]);
-        }
-    }
-    /**
-     * Calcula la función piso para un número dado con el escalón del tamaño dado por n.
-     * @param x El número al que se le quiere hacer el cálculo.
-     * @param n El tamaño del escalón.
-     */
-    myFloor(x, n) {
-        return Math.floor(x / n) * n;
-    }
-    getChannelPartDNA(songPart) {
-        const max = songPart.length;
-        let midPoint = Math.floor(max / 2);
-        let sameLeft = 0;
-        let sameRight = 0;
-        let upLeft = 0;
-        let upRight = 0;
-        let downLeft = 0;
-        let downRight = 0;
-        for (let pos = 0; pos < midPoint; pos = pos + 1) {
-            if (songPart[pos] < songPart[pos + 1]) {
-                upLeft = upLeft + 1;
-            }
-            else if (songPart[pos] > songPart[pos + 1]) {
-                downLeft = downLeft + 1;
-            }
-            if (this.compare(songPart[pos], songPart[pos + 1], MusicProcess.toleranceLlanura)) {
-                sameLeft = sameLeft + 1;
-            }
-        }
-        for (let pos = midPoint; pos < max - 1; pos = pos + 1) {
-            if (songPart[pos] < songPart[pos + 1]) {
-                upRight = upRight + 1;
-            }
-            else if (songPart[pos] > songPart[pos + 1]) {
-                downRight = downRight + 1;
-            }
-            if (this.compare(songPart[pos], songPart[pos + 1], MusicProcess.toleranceLlanura)) {
-                sameRight = sameRight + 1;
-            }
-        }
-        // Nomenclatura:
-        /*
-         * L : Llanura
-         * V : Valle
-         * M : Montaña
-         * U : Subida (Uphill)
-         * D : Bajada (Downhill)
-         */
-        let options = [['L', (sameLeft + sameRight) / max],
-            ['V', (downLeft + upRight) / max],
-            ['M', (upLeft + downRight) / max],
-            ['U', (upLeft + upRight) / max],
-            ['D', (downLeft + downRight) / max]];
-        let maxPer = 0;
-        let letter = '';
-        options.forEach((option) => {
-            if (option[1] > maxPer) {
-                maxPer = option[1];
-                letter = option[0];
-            }
-        });
-        return [letter, maxPer];
     }
     // Getters y Setters
     /**
@@ -432,7 +171,7 @@ class MusicProcess {
      */
     setLeftChannel(leftChannel) {
         this.leftChannel = leftChannel;
-        console.log('Preparando la canción...');
+        console.log('Preparing the channel...');
         this.leftChannelBeats = this.getBeatsPerSecond(this.leftChannel);
     }
     /**
@@ -447,7 +186,7 @@ class MusicProcess {
      */
     setRightChannel(rightChannel) {
         this.rightChannel = rightChannel;
-        console.log('Preparando la canción...');
+        console.log('Preparing the channel...');
         this.rightChannelBeats = this.getBeatsPerSecond(this.rightChannel);
     }
     /**
@@ -462,7 +201,7 @@ class MusicProcess {
      */
     setLeftChannel2(leftChannel) {
         this.leftChannel2 = leftChannel;
-        console.log('Preparando la canción...');
+        console.log('Preparing the channel...');
         this.leftChannelBeats2 = this.getBeatsPerSecond(this.leftChannel2);
     }
     /**
@@ -477,7 +216,7 @@ class MusicProcess {
      */
     setRightChannel2(rightChannel) {
         this.rightChannel2 = rightChannel;
-        console.log('Preparando la canción...');
+        console.log('Preparing the channel...');
         this.rightChannelBeats2 = this.getBeatsPerSecond(this.rightChannel2);
     }
     /**
@@ -858,18 +597,358 @@ class MusicProcess {
      * @param songChannel El canal de la canción.
      */
     reduceChannelSong(songChannel) {
-        let reducedSong = [];
+        const reducedSong = [];
         let minPos = 0;
         for (let cont = 0; minPos < songChannel.length; cont = cont + 1) {
             minPos = cont * MusicProcess.sliceSize;
             if (minPos + MusicProcess.sliceSize < songChannel.length) {
-                reducedSong.push(this.getMaxAbsoluteValue(songChannel.slice(minPos, minPos + MusicProcess.sliceSize)));
+                reducedSong.push(this.getMaxAbsoluteValue(songChannel.slice(minPos, minPos +
+                    MusicProcess.sliceSize)));
             }
             else {
                 reducedSong.push(this.getMaxAbsoluteValue(songChannel.slice(minPos)));
             }
         }
         return reducedSong;
+    }
+    createSong(individual, songLeftChannel, songRightChannel, size) {
+        const totalSize = individual.length * size;
+        const newSongLeftChannel = new Float32Array(totalSize);
+        const newSongRightChannel = new Float32Array(totalSize);
+        for (let pos = 0; pos < individual.length; pos = pos + 1) {
+            const min = individual[pos] * size;
+            let max = min + size;
+            if (max > songLeftChannel.length) {
+                max = songLeftChannel.length;
+            }
+            newSongLeftChannel.set(songLeftChannel.slice(min, max), pos * size);
+            newSongRightChannel.set(songRightChannel.slice(min, max), pos * size);
+        }
+        return [newSongLeftChannel, newSongRightChannel];
+    }
+    dnaProportion(dnaOriginal, newSize) {
+        const newDNA = [];
+        const proportion = Math.floor(newSize / dnaOriginal.length);
+        if (proportion > 1) {
+            dnaOriginal.forEach((crom) => {
+                for (let rep = 0; rep < proportion; rep = rep + 1) {
+                    newDNA.push(crom);
+                }
+            });
+        }
+        const faltante = newSize - newDNA.length;
+        for (let cont = 0; cont < faltante; cont = cont + 1) {
+            const pos = Math.floor(cont * newDNA.length / faltante);
+            newDNA.splice(pos, 0, newDNA[pos]);
+        }
+        return newDNA;
+    }
+    mutateIndividuals(individuals, cant) {
+        for (let pos = 0; pos < individuals.length; pos = pos + 1) {
+            if (Math.random() < MusicProcess.mutationPercentage) {
+                individuals[pos] = this.mutateIndividual(individuals[pos], cant);
+            }
+        }
+        return individuals;
+    }
+    mutateIndividual(individual, cant) {
+        const pos = Math.floor(Math.random() * individual.length);
+        const valMutation = Math.floor(Math.random() * cant);
+        individual[pos] = valMutation;
+        return individual;
+    }
+    fitnessOfIndividuals(individuals, dnaSong1, dnaSong2) {
+        let individualFitness = [];
+        individuals.forEach((individual) => {
+            individualFitness.push([individual, this.fitnessOfIndividual(individual, dnaSong1, dnaSong2)]);
+        });
+        this.sortArrayBySecondPos(individualFitness);
+        const min = (1 - MusicProcess.livePercentage) * individualFitness.length;
+        individualFitness = individualFitness.slice(min);
+        const liveIndividuals = Array(individualFitness.length);
+        for (let pos = 0; pos < individualFitness.length; pos = pos + 1) {
+            liveIndividuals[pos] = individualFitness[pos][0];
+        }
+        return liveIndividuals;
+    }
+    fitnessOfIndividual(individual, dnaSong1, dnaSong2) {
+        let numMatches = 0;
+        for (let pos = 0; pos < individual.length; pos = pos + 1) {
+            const crom = individual[pos];
+            if (dnaSong1[crom] === dnaSong2[crom]) {
+                numMatches = numMatches + 1;
+            }
+        }
+        return numMatches;
+    }
+    crossIndividuals(individuals, cant) {
+        const newIndividuals = new Array(cant);
+        for (let pos = 0; pos < cant; pos = pos + 1) {
+            const posFather = Math.floor(Math.random() * individuals.length);
+            const posMother = Math.floor(Math.random() * individuals.length);
+            newIndividuals[pos] = this.newSon(individuals[posFather], individuals[posMother]);
+        }
+        return newIndividuals;
+    }
+    newSon(father, mother) {
+        const son = new Array(father.length);
+        for (let cantCrom = 0; cantCrom < father.length; cantCrom = cantCrom + 1) {
+            if (cantCrom % 2 === 0) {
+                son[cantCrom] = father[cantCrom];
+            }
+            else {
+                son[cantCrom] = mother[cantCrom];
+            }
+        }
+        return son;
+    }
+    createIndividuals(cant, distribution, dnaSong) {
+        const individuals = new Array(cant);
+        for (let cont = 0; cont < cant; cont = cont + 1) {
+            individuals[cont] = this.createIndividual(distribution, dnaSong);
+        }
+        return individuals;
+    }
+    createIndividual(distribution, dnaSong) {
+        const individual = new Array(dnaSong.length);
+        const max = dnaSong.length;
+        const dist = new Array(distribution.length);
+        const position = {};
+        for (let cont = 0; cont < distribution.length; cont = cont + 1) {
+            const value = distribution[cont][0];
+            dist[cont] = 0;
+            position[value] = cont;
+        }
+        let total = 0;
+        while (total < max) {
+            const newValue = Math.floor(Math.random() * max);
+            const pos = position[dnaSong[newValue]];
+            if (pos != undefined && dist[pos] < distribution[pos][1]) {
+                dist[pos] = dist[pos] + 1;
+                individual[total] = newValue;
+                total = total + 1;
+            }
+        }
+        /*for (let cont: number = 0; cont < max; cont = cont + 1) {
+        individual[cont] = Math.floor(Math.random() * max);
+        }*/
+        return individual;
+    }
+    esSearch() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = require('./esconnection.js');
+            return yield new Promise((resolve, reject) => {
+                resolve(client.search({
+                    index: "song",
+                    type: "part",
+                    body: {
+                        "aggs": {
+                            "byType": {
+                                "terms": {
+                                    "field": "type",
+                                    "size": 100000
+                                }
+                            }
+                        }
+                    }
+                }));
+            });
+        });
+    }
+    esBulkSong(dnaSong) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const bulk = this.esPrepareBulkData(dnaSong);
+            return yield new Promise((resolve, reject) => {
+                resolve(this.esIndexall(bulk));
+            });
+        });
+    }
+    esIndexall(madebulk) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = require('./esconnection.js');
+            return yield new Promise((resolve, reject) => {
+                resolve(client.bulk({
+                    maxRetries: 5,
+                    index: 'song',
+                    type: 'part',
+                    body: madebulk
+                }));
+            });
+        });
+    }
+    esPrepareBulkData(dnaSong) {
+        const bulk = [];
+        for (let pos = 0; pos < dnaSong.length; pos = pos + 1) {
+            bulk.push({
+                index: { _index: 'song', _type: 'part', _id: pos }
+            }, {
+                type: dnaSong[pos]
+            });
+        }
+        return bulk;
+    }
+    esCreateIndex() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = require('./esconnection.js');
+            return yield new Promise((resolve, reject) => resolve(client.indices.create({ index: 'song' })));
+        });
+    }
+    esDeleteIndex() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = require('./esconnection.js');
+            return yield new Promise((resolve, reject) => resolve(client.indices.delete({ index: 'song' })));
+        });
+    }
+    getSongDNA(songLeftChannel, songRightChannel, leftBeats, rightBeats) {
+        const reducedLeftChannel = this.reduceChannelSong(songLeftChannel);
+        const reducedRightChannel = this.reduceChannelSong(songRightChannel);
+        return this.getChannelsSongDNA(reducedLeftChannel, reducedRightChannel, leftBeats, rightBeats);
+    }
+    getChannelsSongDNA(reducedLeftChannel, reducedRightChannel, leftBeats, rightBeats) {
+        const beats = this.refine(this.sortArray(leftBeats.concat(rightBeats)), MusicProcess.tolerance);
+        let resp = [];
+        let min = 0;
+        for (let cont = 0; cont <= beats.length; cont = cont + 1) {
+            let max;
+            if (cont < beats.length) {
+                max = Math.floor(beats[cont] / MusicProcess.sliceSize - 1);
+            }
+            else {
+                max = reducedLeftChannel.length;
+            }
+            if (min !== 0 || max === 0) {
+                let tipo = MusicProcess.BEAT;
+                if (min !== 0) {
+                    tipo = tipo + this.alturaNota(Math.max(reducedLeftChannel[min], reducedRightChannel[min]));
+                }
+                else {
+                    tipo = tipo + this.alturaNota(Math.max(reducedLeftChannel[0], reducedRightChannel[0]));
+                }
+                resp.push(tipo); // BEAT
+                min = min + 1;
+            }
+            if (min < max) {
+                const respLeft = this.getChannelPartDNA(reducedLeftChannel.slice(min, max));
+                const respRight = this.getChannelPartDNA(reducedRightChannel.slice(min, max));
+                let tipo;
+                if (respLeft[1] > respRight[1]) {
+                    tipo = respLeft[0];
+                }
+                else {
+                    tipo = respRight[0];
+                }
+                const unTercio = Math.floor((max - min) / 3);
+                const dosTercios = Math.floor(2 * (max - min) / 3);
+                if (tipo >= MusicProcess.LLANURA && tipo < MusicProcess.LLANURA + 100) {
+                    resp = this.llenarArrayDNA(resp, tipo, reducedLeftChannel, reducedRightChannel, min, max);
+                }
+                else {
+                    resp = this.llenarArrayDNA(resp, tipo + MusicProcess.INICIO, reducedLeftChannel, reducedRightChannel, min, min + unTercio); // Inicio
+                    resp = this.llenarArrayDNA(resp, tipo + MusicProcess.MITAD, reducedLeftChannel, reducedRightChannel, min + unTercio, min + dosTercios); // Mitad
+                    resp = this.llenarArrayDNA(resp, tipo + MusicProcess.FINAL, reducedLeftChannel, reducedRightChannel, min + dosTercios, max); // Final
+                }
+            }
+            min = max + 1;
+        }
+        return resp;
+    }
+    alturaNota(nota) {
+        let altura = 0;
+        if (nota < MusicProcess.BAJISIMA_VALUE) {
+            altura = MusicProcess.BAJISIMA;
+        }
+        else if (nota < MusicProcess.BAJA_VALUE) {
+            altura = MusicProcess.BAJA;
+        }
+        else if (nota < MusicProcess.BAJAMEDIA_VALUE) {
+            altura = MusicProcess.BAJAMEDIA;
+        }
+        else if (nota < MusicProcess.MEDIA_VALUE) {
+            altura = MusicProcess.MEDIA;
+        }
+        else if (nota < MusicProcess.MEDIAALTA_VALUE) {
+            altura = MusicProcess.MEDIAALTA;
+        }
+        else if (nota < MusicProcess.ALTA_VALUE) {
+            altura = MusicProcess.ALTA;
+        }
+        else {
+            altura = MusicProcess.ALTISIMA;
+        }
+        return altura;
+    }
+    llenarArrayDNA(arrayDNA, DNA, reducedLeftChannel, reducedRightChannel, min, max) {
+        for (let i = min; i < max; i = i + 1) {
+            arrayDNA.push(DNA + this.alturaNota(Math.max(reducedLeftChannel[i], reducedRightChannel[i])));
+        }
+        return arrayDNA;
+    }
+    /**
+     * Calcula la función piso para un número dado con el escalón del tamaño dado por n.
+     * @param x El número al que se le quiere hacer el cálculo.
+     * @param n El tamaño del escalón.
+     */
+    myFloor(x, n) {
+        return Math.floor(x / n) * n;
+    }
+    getChannelPartDNA(songPart) {
+        const max = songPart.length;
+        const midPoint = Math.floor(max / 2);
+        let sameLeft = 0;
+        let sameRight = 0;
+        let upLeft = 0;
+        let upRight = 0;
+        let downLeft = 0;
+        let downRight = 0;
+        for (let pos = 0; pos < midPoint; pos = pos + 1) {
+            if (songPart[pos] < songPart[pos + 1]) {
+                upLeft = upLeft + 1;
+            }
+            else if (songPart[pos] > songPart[pos + 1]) {
+                downLeft = downLeft + 1;
+            }
+            if (this.compare(songPart[pos], songPart[pos + 1], MusicProcess.toleranceLlanura)) {
+                sameLeft = sameLeft + 1;
+            }
+        }
+        for (let pos = midPoint; pos < max - 1; pos = pos + 1) {
+            if (songPart[pos] < songPart[pos + 1]) {
+                upRight = upRight + 1;
+            }
+            else if (songPart[pos] > songPart[pos + 1]) {
+                downRight = downRight + 1;
+            }
+            if (this.compare(songPart[pos], songPart[pos + 1], MusicProcess.toleranceLlanura)) {
+                sameRight = sameRight + 1;
+            }
+        }
+        // Nomenclatura:
+        /*
+        * L : Llanura : 100
+        * V : Valle : 200
+        * M : Montaña : 300
+        * U : Subida (Uphill) : 400
+        * D : Bajada (Downhill) : 500
+        */
+        const options = [[MusicProcess.LLANURA,
+                (sameLeft + sameRight) / max],
+            [MusicProcess.VALLE,
+                (downLeft + upRight) / max],
+            [MusicProcess.MONTANNA,
+                (upLeft + downRight) / max],
+            [MusicProcess.SUBIDA,
+                (upLeft + upRight) / max],
+            [MusicProcess.BAJADA,
+                (downLeft + downRight) / max]];
+        let maxPer = 0;
+        let tipo = 0;
+        options.forEach((option) => {
+            if (option[1] > maxPer) {
+                maxPer = option[1];
+                tipo = option[0];
+            }
+        });
+        return [tipo, maxPer];
     }
 }
 // Frecuencia de los samples que se van a trabajar
@@ -898,7 +977,7 @@ MusicProcess.mixNumParts = 60;
 // CONSTANTES PARA EL COMPOSE
 // Tiempo en que se dividirá la canción para crear la nueva
 // canción considerando que 44100 son un segundo
-MusicProcess.sliceSize = 441 * 3;
+MusicProcess.sliceSize = 441 * 5;
 // Tolerancia en el compose para indicar que dos valores son iguales
 MusicProcess.toleranceLlanura = 0.02;
 // Cantidad de individuos con la que se va a trabajar
@@ -906,8 +985,64 @@ MusicProcess.individualsNumber = 100;
 // Porcentaje de Match para decidir que ya se terminó el algoritmo genético
 MusicProcess.successEndPercentage = 0.8;
 // Porcentaje de individuos que quedarán vivos al aplicar el fitness
-MusicProcess.livePercentage = 0.5;
+MusicProcess.livePercentage = 0.7;
 // Porcentaje de individuos que tendrán mutación
-MusicProcess.mutationPercentage = 0.05;
+MusicProcess.mutationPercentage = 0.07;
+// Tipos de cromosomas
+// Nomenclatura:
+/*
+ * Beats -> 0
+ * Llanura -> 100
+ * Valle -> 200
+ * Montaña -> 300
+ * Subida (Uphill) -> 400
+ * Bajada (Downhill) -> 500
+ */
+// BEATS
+MusicProcess.BEAT = 0;
+// Llanuras
+MusicProcess.LLANURA = 100;
+// Valles
+MusicProcess.VALLE = 200;
+// Montañas
+MusicProcess.MONTANNA = 300;
+// Subida
+MusicProcess.SUBIDA = 400;
+// Bajada
+MusicProcess.BAJADA = 500;
+// Modificadores
+// Bajísima
+MusicProcess.BAJISIMA = 0;
+// Baja
+MusicProcess.BAJA = 10;
+// BajaMedia
+MusicProcess.BAJAMEDIA = 20;
+// Media
+MusicProcess.MEDIA = 30;
+// MediaAlta
+MusicProcess.MEDIAALTA = 40;
+// Alta
+MusicProcess.ALTA = 50;
+// Altisima
+MusicProcess.ALTISIMA = 60;
+// Inicio
+MusicProcess.INICIO = 0;
+// Mitad
+MusicProcess.MITAD = 1;
+// Final
+MusicProcess.FINAL = 2;
+// Valores para comparar
+// Bajísima
+MusicProcess.BAJISIMA_VALUE = 0.1;
+// Baja
+MusicProcess.BAJA_VALUE = 0.2;
+// BajaMedia
+MusicProcess.BAJAMEDIA_VALUE = 0.3;
+// Media
+MusicProcess.MEDIA_VALUE = 0.45;
+// MediaAlta
+MusicProcess.MEDIAALTA_VALUE = 0.6;
+// Alta
+MusicProcess.ALTA_VALUE = 0.75;
 exports.MusicProcess = MusicProcess;
 //# sourceMappingURL=musicprocess.js.map

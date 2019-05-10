@@ -14,8 +14,8 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const fs = __importStar(require("fs"));
-const WavEncoder = require("wav-encoder");
-const WavDecoder = require("wav-decoder");
+const wavDecoder = require('wav-decoder');
+const wavEncoder = require('wav-encoder');
 class WavFileManager {
     /**
      * Carga un archivo .wav con la dirección dada.
@@ -23,7 +23,7 @@ class WavFileManager {
      */
     static readWAV(filepath) {
         const buffer = WavFileManager.read(filepath);
-        return WavDecoder.decode.sync(buffer);
+        return wavDecoder.decode.sync(buffer);
     }
     /**
      * Guarda un archivo .wav en la dirección y con la información dada.
@@ -31,7 +31,7 @@ class WavFileManager {
      * @param audioData Datos del archivo .wav que se desean guardar
      */
     static writeWAV(filepath, audioData) {
-        const buffer = WavEncoder.encode.sync(audioData);
+        const buffer = wavEncoder.encode.sync(audioData);
         fs.writeFileSync(filepath, Buffer.from(buffer));
     }
     /*
