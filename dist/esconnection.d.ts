@@ -1,2 +1,2 @@
-declare var elasticsearch: any;
-declare var client: any;
+declare const elasticsearch: any;
+declare const client: any;

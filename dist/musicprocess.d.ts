@@ -19,6 +19,28 @@ export declare class MusicProcess {
     private static readonly successEndPercentage;
     private static readonly livePercentage;
     private static readonly mutationPercentage;
+    private static readonly BEAT;
+    private static readonly LLANURA;
+    private static readonly VALLE;
+    private static readonly MONTANNA;
+    private static readonly SUBIDA;
+    private static readonly BAJADA;
+    private static readonly BAJISIMA;
+    private static readonly BAJA;
+    private static readonly BAJAMEDIA;
+    private static readonly MEDIA;
+    private static readonly MEDIAALTA;
+    private static readonly ALTA;
+    private static readonly ALTISIMA;
+    private static readonly INICIO;
+    private static readonly MITAD;
+    private static readonly FINAL;
+    private static readonly BAJISIMA_VALUE;
+    private static readonly BAJA_VALUE;
+    private static readonly BAJAMEDIA_VALUE;
+    private static readonly MEDIA_VALUE;
+    private static readonly MEDIAALTA_VALUE;
+    private static readonly ALTA_VALUE;
     private leftChannel;
     private rightChannel;
     private leftChannel2;
@@ -50,33 +72,7 @@ export declare class MusicProcess {
      * algoritmo genético para que su forma cambie a la forma de la primera
      * canción.
      */
-    compose(): [Float32Array, Float32Array];
-    private createSong;
-    private DNAProportion;
-    private mutateIndividuals;
-    private mutateIndividual;
-    private fitnessOfIndividuals;
-    private fitnessOfIndividual;
-    private crossIndividuals;
-    private newSon;
-    private createIndividuals;
-    private createIndividual;
-    private esSearch;
-    private esBulkSong;
-    private indexall;
-    private esPrepareBulkData;
-    private esCreateIndex;
-    private esDeleteIndex;
-    private getSongDNA;
-    private getChannelsSongDNA;
-    private llenarArrayDNA;
-    /**
-     * Calcula la función piso para un número dado con el escalón del tamaño dado por n.
-     * @param x El número al que se le quiere hacer el cálculo.
-     * @param n El tamaño del escalón.
-     */
-    private myFloor;
-    private getChannelPartDNA;
+    compose(): Promise<any>;
     /**
      * Devuelve el canal izquierdo de la primera canción.
      */
@@ -238,4 +234,31 @@ export declare class MusicProcess {
      * @param songChannel El canal de la canción.
      */
     private reduceChannelSong;
+    private createSong;
+    private dnaProportion;
+    private mutateIndividuals;
+    private mutateIndividual;
+    private fitnessOfIndividuals;
+    private fitnessOfIndividual;
+    private crossIndividuals;
+    private newSon;
+    private createIndividuals;
+    private createIndividual;
+    private esSearch;
+    private esBulkSong;
+    private esIndexall;
+    private esPrepareBulkData;
+    private esCreateIndex;
+    private esDeleteIndex;
+    private getSongDNA;
+    private getChannelsSongDNA;
+    private alturaNota;
+    private llenarArrayDNA;
+    /**
+     * Calcula la función piso para un número dado con el escalón del tamaño dado por n.
+     * @param x El número al que se le quiere hacer el cálculo.
+     * @param n El tamaño del escalón.
+     */
+    private myFloor;
+    private getChannelPartDNA;
 }

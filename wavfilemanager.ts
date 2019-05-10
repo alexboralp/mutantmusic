@@ -6,10 +6,8 @@
  */
 
 import * as fs from 'fs';
-const WavEncoder = require("wav-encoder");
-const WavDecoder = require("wav-decoder");
-//import * as WavDecoder from 'wav-decoder';
-//import * as WavEncoder from 'wav-encoder';
+const wavDecoder = require('wav-decoder');
+const wavEncoder = require('wav-encoder');
 
 export interface IAudioData {
   sampleRate: number;
@@ -23,7 +21,7 @@ export class WavFileManager {
    */
   public static readWAV(filepath: string): IAudioData {
     const buffer = WavFileManager.read(filepath);
-    return WavDecoder.decode.sync(buffer);
+    return wavDecoder.decode.sync(buffer);
   }
 
   /**
@@ -32,7 +30,7 @@ export class WavFileManager {
    * @param audioData Datos del archivo .wav que se desean guardar
    */
   public static writeWAV(filepath: string, audioData: IAudioData) {
-    const buffer = WavEncoder.encode.sync(audioData);
+    const buffer = wavEncoder.encode.sync(audioData);
     fs.writeFileSync(filepath, Buffer.from(buffer));
   }
 
