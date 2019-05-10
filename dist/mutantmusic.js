@@ -31,6 +31,7 @@ try {
     cancion1 = WFM.WavFileManager.readWAV(archivoWAV1);
     cancion2 = WFM.WavFileManager.readWAV(archivoWAV2);
     const musicprocess = new MP.MusicProcess(cancion1.channelData[0], cancion1.channelData[1], cancion2.channelData[0], cancion2.channelData[1]);
+    let continuar = true;
     if (funcion === 'mt') {
         console.log('Looking for matches...');
         const resp = musicprocess.match();
@@ -63,6 +64,7 @@ try {
     }
     else if (funcion === 'cmp') {
         console.log('Creating the composed song...');
+        continuar = false;
         musicprocess.compose()
             .catch((err) => {
             console.log(`Error creating the composed song: ${err}`);
@@ -84,7 +86,11 @@ try {
             console.log(`Error creating the composed song: ${err}`);
         });
     }
-    if (funcion !== 'cmp') {
+    else {
+        continuar = false;
+        console.log('Función no soportada');
+    }
+    if (continuar) {
         console.log('Saving the song...');
         try {
             WFM.WavFileManager.writeWAV(nombreArchivo, cancion2);

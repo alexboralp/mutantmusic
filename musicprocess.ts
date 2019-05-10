@@ -57,6 +57,9 @@ export class MusicProcess {
   private static readonly livePercentage: number = 0.7;
   // Porcentaje de individuos que tendrán mutación
   private static readonly mutationPercentage: number = 0.07;
+  // Número máximo de generaciones, si se llega a este número se sale con la solución
+  // que se tenga en ese momento.
+  private static readonly stopGenerationsNumber: number = 100000;
   // Tipos de cromosomas
   // Nomenclatura:
     /*
@@ -221,11 +224,14 @@ export class MusicProcess {
                                                this.leftChannelBeats2,
                                                this.rightChannelBeats2);
 
-      const totalReducedSongValues = Math.ceil(this.leftChannel.length /
-                                                MusicProcess.sliceSize);
-
       // Proporciona el ADN de la segunda canción
       dnaSong2 = this.dnaProportion(dnaSong2, dnaSong1.length);
+
+      const totalReducedSongValues = Math.min(dnaSong1.length, dnaSong2.length);
+
+      console.log('dnaSong1: ' + dnaSong1.length);
+      console.log('dnaSong2: ' + dnaSong2.length);
+      console.log('totalReducedSongValues: ' + totalReducedSongValues);
 
       const distribution: Array<[number, number]> = [];
 
@@ -255,7 +261,7 @@ export class MusicProcess {
               let seguir: boolean = true;
               let numGenerations: number = 0;
 
-              while (seguir) {
+              while (seguir && numGenerations < MusicProcess.stopGenerationsNumber) {
                 individuals = this.fitnessOfIndividuals(individuals, dnaSong1, dnaSong2);
 
                 bestIndividual = individuals[individuals.length - 1];
@@ -930,7 +936,7 @@ export class MusicProcess {
 
     for (let pos: number = 0; pos < individual.length; pos = pos + 1) {
       const crom: number = individual[pos];
-      if (dnaSong1[crom] === dnaSong2[crom]) {
+      if (dnaSong1[crom] === dnaSong2[pos]) {
         numMatches = numMatches + 1;
       }
     }
@@ -1078,6 +1084,9 @@ export class MusicProcess {
     const reducedLeftChannel = this.reduceChannelSong(songLeftChannel);
     const reducedRightChannel = this.reduceChannelSong(songRightChannel);
 
+    console.log('reducedLeftChannel: ' + reducedLeftChannel.length);
+    console.log('reducedRightChannel: ' + reducedRightChannel.length);
+
     return this.getChannelsSongDNA(reducedLeftChannel, reducedRightChannel, leftBeats, rightBeats);
   }
 
@@ -1086,36 +1095,45 @@ export class MusicProcess {
                              leftBeats: number[],
                              rightBeats: number[]): number[] {
 
-    const beats = this.refine(this.sortArray(leftBeats.concat(rightBeats)), MusicProcess.tolerance);
+    let beats = this.refine(this.sortArray(leftBeats.concat(rightBeats)), MusicProcess.tolerance);
+    for (let pos: number = 0; pos < beats.length; pos = pos + 1) {
+      beats[pos] = Math.floor(beats[pos] / MusicProcess.sliceSize);
+    }
+
     let resp: number[] = [];
-    let min: number = 0;
+    let beatActual: number = 0;
+    let unTercio: number = 0;
+    let dosTercios: number = 0;
+    let tipo: number = 0;
 
-    for (let cont = 0; cont <= beats.length; cont = cont + 1) {
-      let max: number;
-      if (cont < beats.length) {
-        max = Math.floor(beats[cont] / MusicProcess.sliceSize - 1);
-      } else {
-        max = reducedLeftChannel.length;
-      }
+    for (let pos: number = 0; pos < reducedLeftChannel.length; pos = pos + 1) {
 
-      if (min !== 0 || max === 0) {
-        let tipo: number = MusicProcess.BEAT;
-        if (min !== 0) {
-          tipo = tipo + this.alturaNota(Math.max(reducedLeftChannel[min],
-                                                 reducedRightChannel[min]));
+      const altura = this.alturaNota(Math.max(reducedLeftChannel[pos], reducedRightChannel[pos]));
+      let lugar: number = 0;
+
+      if (pos == beats[beatActual]) {
+
+        tipo = MusicProcess.BEAT;
+        lugar = MusicProcess.INICIO;
+
+        resp.push(tipo + altura + lugar);
+
+        let min: number = 0;
+        let max: number = 0;
+
+        if (beatActual < beats.length - 1){
+          min = beats[beatActual];
+          max = beats[beatActual + 1]
         } else {
-          tipo = tipo + this.alturaNota(Math.max(reducedLeftChannel[0],
-                                                 reducedRightChannel[0]));
+          max = reducedLeftChannel.length;
+          min = beats[beatActual];
         }
-        resp.push(tipo); // BEAT
-        min = min + 1;
-      }
 
-      if (min < max) {
+        unTercio = Math.floor((max - min) / 3);
+        dosTercios = Math.floor(2 * (max - min) / 3);
+
         const respLeft = this.getChannelPartDNA(reducedLeftChannel.slice(min, max));
         const respRight = this.getChannelPartDNA(reducedRightChannel.slice(min, max));
-
-        let tipo: number;
 
         if (respLeft[1] > respRight[1]) {
           tipo = respLeft[0];
@@ -1123,37 +1141,44 @@ export class MusicProcess {
           tipo = respRight[0];
         }
 
-        const unTercio: number = Math.floor((max - min) / 3);
-        const dosTercios: number = Math.floor(2 * (max - min) / 3);
+        beatActual = beatActual + 1;
 
-        if (tipo >= MusicProcess.LLANURA && tipo < MusicProcess.LLANURA + 100) {
-          resp = this.llenarArrayDNA(resp,
-                                     tipo,
-                                     reducedLeftChannel,
-                                     reducedRightChannel,
-                                     min, max);
+      } else if (pos === 0) {
+
+        const respLeft = this.getChannelPartDNA(reducedLeftChannel.slice(0, beats[beatActual]));
+        const respRight = this.getChannelPartDNA(reducedRightChannel.slice(0, beats[beatActual]));
+
+        if (respLeft[1] > respRight[1]) {
+          tipo = respLeft[0];
         } else {
-          resp = this.llenarArrayDNA(resp,
-                                     tipo + MusicProcess.INICIO,
-                                     reducedLeftChannel,
-                                     reducedRightChannel,
-                                     min,
-                                     min + unTercio); // Inicio
-          resp = this.llenarArrayDNA(resp,
-                                     tipo + MusicProcess.MITAD,
-                                     reducedLeftChannel,
-                                     reducedRightChannel,
-                                     min + unTercio,
-                                     min + dosTercios); // Mitad
-          resp = this.llenarArrayDNA(resp,
-                                     tipo + MusicProcess.FINAL,
-                                     reducedLeftChannel,
-                                     reducedRightChannel,
-                                     min + dosTercios,
-                                     max); // Final
+          tipo = respRight[0];
         }
+
+        if (beatActual < beats.length - 1){
+          unTercio = Math.floor(beats[beatActual] / 3);
+          dosTercios = Math.floor(2 * beats[beatActual] / 3);
+        } else {
+          unTercio = 0;
+          dosTercios = 0;
+        }
+
+        lugar = MusicProcess.INICIO;
+
+        resp.push(tipo + altura + lugar);
+
+      } else {
+        let lugar: number;
+
+        if (pos < beats[beatActual - 1] + unTercio){
+          lugar = MusicProcess.INICIO;
+        } else if (pos < beats[beatActual - 1] + dosTercios){
+          lugar = MusicProcess.MITAD;
+        } else {
+          lugar = MusicProcess.FINAL;
+        }
+
+        resp.push(tipo + altura + lugar);
       }
-      min = max + 1;
     }
 
     return resp;
