@@ -35,7 +35,7 @@ export class MusicProcess {
   private static readonly samplesPercentage: number = 0.01;
   // Porcentaje de igualdad entre la canción original y el sample para
   // considerarlas que hicieron match
-  private static readonly successPercentage: number = 0.80;
+  private static readonly successPercentage: number = 0.70;
 
   // CONSTANTES PARA EL MIX
 
@@ -228,10 +228,6 @@ export class MusicProcess {
       dnaSong2 = this.dnaProportion(dnaSong2, dnaSong1.length);
 
       const totalReducedSongValues = Math.min(dnaSong1.length, dnaSong2.length);
-
-      console.log('dnaSong1: ' + dnaSong1.length);
-      console.log('dnaSong2: ' + dnaSong2.length);
-      console.log('totalReducedSongValues: ' + totalReducedSongValues);
 
       const distribution: Array<[number, number]> = [];
 
@@ -995,7 +991,7 @@ export class MusicProcess {
     while (total < max) {
       const newValue = Math.floor(Math.random() * max);
       const pos: number = position[dnaSong[newValue]];
-      if (pos != undefined && dist[pos] < distribution[pos][1]) {
+      if (dist[pos] < distribution[pos][1]) {
         dist[pos] = dist[pos] + 1;
         individual[total] = newValue;
         total = total + 1;
@@ -1083,9 +1079,6 @@ export class MusicProcess {
                      rightBeats: number[]): number[] {
     const reducedLeftChannel = this.reduceChannelSong(songLeftChannel);
     const reducedRightChannel = this.reduceChannelSong(songRightChannel);
-
-    console.log('reducedLeftChannel: ' + reducedLeftChannel.length);
-    console.log('reducedRightChannel: ' + reducedRightChannel.length);
 
     return this.getChannelsSongDNA(reducedLeftChannel, reducedRightChannel, leftBeats, rightBeats);
   }

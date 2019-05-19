@@ -5,18 +5,36 @@
  * Description: Manejador de mix de música
  */
 
-import * as MP from './musicprocess';
-import * as WFM from './wavfilemanager';
+//import * as MP from './musicprocess';
+//import * as WFM from './wavfilemanager';
+import * as util from './Utils';
+
+console.log(util.Utils.intRandom(0,1));
+
+const pos = util.Utils.intRandom(0, 16);
+let num = 1;
+num = num<<(pos-1);
+console.log(pos + " " + num.toString(2));
+
+let a: number = 0b1100110011001100;
+let b: number = 0b1010101010101010;
+
+console.log(a&b);
+console.log("a: " + a.toString(2)); // Outputs: "11111111"
+console.log("b: " + b.toString(2)); // Outputs: "11111111"
+console.log("a&b: " + (a&b).toString(2));
+console.log("cruce: " + ((a&0b1111111100000000) + (b&0b0000000011111111)).toString(2));
 
 // Se obtienen los argumentos con los que se llamó el programa
 
 // Este debe ser la función que se quiere realizar con la canción
-const funcion = process.argv[2];
+//const funcion = process.argv[2];
 // Nombre del primer archivo .wav que se desea procesar
-const archivoWAV1 = process.argv[3];
+//const archivoWAV1 = process.argv[3];
 // Nombre del segundo archivo .wav que se desea procesar
-const archivoWAV2 = process.argv[4];
+//const archivoWAV2 = process.argv[4];
 
+/*
 console.log('Reading the songs...');
 let error: boolean = false;
 let cancion1: WFM.IAudioData;
@@ -100,3 +118,4 @@ try {
   console.log(`There was an error while opening the file: ${e}`);
   error = true;
 }
+*/
