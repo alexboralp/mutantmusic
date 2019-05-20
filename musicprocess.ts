@@ -50,7 +50,7 @@ export class MusicProcess {
   // Tolerancia en el compose para indicar que dos valores son iguales
   private static readonly toleranceLlanura: number = 0.02;
   // Tolerancia en el algoritmo genético para decir que se obtuvo el porcentaje requerido
-  private static readonly genAlgTolerance: number = 0.01;
+  private static readonly genAlgTolerance: number = 0.007;
   // Porcentaje de Match para decidir que ya se terminó el algoritmo genético
   private static readonly successEndPercentage: number = 0.8;
   // Porcentaje de individuos que quedarán vivos al aplicar el fitness
@@ -59,7 +59,7 @@ export class MusicProcess {
   private static readonly mutationPercentage: number = 0.0635;
   // Número máximo de generaciones, si se llega a este número se sale con la solución
   // que se tenga en ese momento.
-  private static readonly stopGenerationsNumber: number = 100000;
+  private static readonly stopGenerationsNumber: number = 1000;
   // Tipos de cromosomas
   // Nomenclatura:
     /*
@@ -208,32 +208,32 @@ export class MusicProcess {
    * canción.
    */
   public compose(): [Float32Array, Float32Array] {
-    console.log('Obteniendo el ADN de la canción 1');
+    // console.log('Obteniendo el ADN de la canción 1');
     const dnaSong1: number[] = this.getSongDNA(this.leftChannel,
                                                this.rightChannel,
                                                this.leftChannelBeats,
                                                this.rightChannelBeats);
-    console.log('Obteniendo el ADN de la canción 2');
+    // console.log('Obteniendo el ADN de la canción 2');
     let dnaSong2: number[] = this.getSongDNA(this.leftChannel2,
                                              this.rightChannel2,
                                              this.leftChannelBeats2,
                                              this.rightChannelBeats2);
 
-    console.log('Obteniendo el AND proporcionado de la canción 2');
+    // console.log('Obteniendo el AND proporcionado de la canción 2');
     // Proporciona el ADN de la segunda canción
     dnaSong2 = this.dnaProportion(dnaSong2, dnaSong1.length);
 
-    console.log('Reduciendo las canciones');
+    // console.log('Reduciendo las canciones');
     const totalReducedSongValues = Math.min(dnaSong1.length, dnaSong2.length);
 
-    console.log('Obteniendo la distribución del ADN');
+    // console.log('Obteniendo la distribución del ADN');
     const dnaDistributionSong1: Array<[number, number[]]> = this.getDNADistribution(dnaSong1);
     const dnaDistributionSong2: Array<[number, number[]]> = this.getDNADistribution(dnaSong2);
 
     // console.log(dnaDistributionSong1);
     // console.log(dnaDistributionSong2);
 
-    console.log('Obteniendo la distribución en 16 bits del ADN');
+    // console.log('Obteniendo la distribución en 16 bits del ADN');
     const distributionSong1: Array<[number, number, number, number, number[]]>
             = this.getDistribution16Bits(dnaDistributionSong1, totalReducedSongValues);
     const distributionSong2: Array<[number, number, number, number, number[]]>
@@ -250,7 +250,7 @@ export class MusicProcess {
 
     const individuals: number[] = dnaSong1; // this.createIndividuals(distribution);
 
-    console.log('Inicio del algoritmo genético');
+    console.log('Genetical Algorithm starting...');
     const genAlg: GAN.GANumber16Bits =
           new GAN.GANumber16Bits(individuals,
                                  0.2,
@@ -288,8 +288,8 @@ export class MusicProcess {
       genAlg.runGA();
       indivSol.push([genSong2, genAlg.getMatchIndividualsFromPoblation()]);
     });
-    console.log('Final del algoritmo genético');
-    console.log('Creando la canción');
+    console.log('Genetical algorithm done.');
+    console.log('Creating the song...');
     return this.createSong(dnaSong2, indivSol, distributionSong1,
                            this.leftChannel, this.rightChannel,
                            MusicProcess.sliceSize);

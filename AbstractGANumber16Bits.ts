@@ -77,11 +77,11 @@ export abstract class AbstractGANumber16Bits {
 
       numGenerations = numGenerations + 1;
       this.actualPoblationMatchPercentage = this.totalMatchIndividuals / this.cantIndividuals;
-      if (numGenerations % 10 === 0) {
-        process.stdout.write(`Generations: ${numGenerations}` +
-                             ', poblation match percentage:' +
-                             `${this.actualPoblationMatchPercentage}` + '\r');
-      }
+      // if (numGenerations % 10 === 0) {
+      process.stdout.write(`Generations: ${numGenerations}` +
+                           ', poblation match percentage:' +
+                           `${this.actualPoblationMatchPercentage}` + '\r');
+      // }
     }
     process.stdout.write('\n');
 
@@ -92,7 +92,7 @@ export abstract class AbstractGANumber16Bits {
    * Devuelve la lista de los elementos de la población que hicieron match
    */
   public getMatchIndividualsFromPoblation(): number[] {
-    console.log('getMatchIndividualsFromPoblation');
+    // console.log('getMatchIndividualsFromPoblation');
     const resp: number[] = [];
     for (let pos = 0; pos < this.poblation.length; pos = pos + 1) {
       if (this.matchHash[pos]) {
