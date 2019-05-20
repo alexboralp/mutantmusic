@@ -5,14 +5,14 @@
  * Description: Clase que procesa la música
  */
 
+import * as GAN from './GANumber16Bits';
 import * as MM from './musicmix';
-
-// Interfaz para crear un Hash
-interface IHash<T> {
-  [key: number]: T;
-}
+import * as Utils from './Utils';
 
 export class MusicProcess {
+
+  // Valor máximo para 16 bits
+  private static readonly BITS16: number = 65535;
 
   // Frecuencia de los samples que se van a trabajar
   private static readonly samplingFrecuency: number = 44100;
@@ -35,7 +35,7 @@ export class MusicProcess {
   private static readonly samplesPercentage: number = 0.01;
   // Porcentaje de igualdad entre la canción original y el sample para
   // considerarlas que hicieron match
-  private static readonly successPercentage: number = 0.80;
+  private static readonly successPercentage: number = 0.70;
 
   // CONSTANTES PARA EL MIX
 
@@ -49,14 +49,14 @@ export class MusicProcess {
   private static readonly sliceSize: number = 441 * 5;
   // Tolerancia en el compose para indicar que dos valores son iguales
   private static readonly toleranceLlanura: number = 0.02;
-  // Cantidad de individuos con la que se va a trabajar
-  private static readonly individualsNumber: number = 100;
+  // Tolerancia en el algoritmo genético para decir que se obtuvo el porcentaje requerido
+  private static readonly genAlgTolerance: number = 0.01;
   // Porcentaje de Match para decidir que ya se terminó el algoritmo genético
   private static readonly successEndPercentage: number = 0.8;
   // Porcentaje de individuos que quedarán vivos al aplicar el fitness
   private static readonly livePercentage: number = 0.7;
   // Porcentaje de individuos que tendrán mutación
-  private static readonly mutationPercentage: number = 0.07;
+  private static readonly mutationPercentage: number = 0.0635;
   // Número máximo de generaciones, si se llega a este número se sale con la solución
   // que se tenga en ese momento.
   private static readonly stopGenerationsNumber: number = 100000;
@@ -143,6 +143,9 @@ export class MusicProcess {
   // Variable que se utilizará cuando se quiera realizar un mix de la canción.
   private mix: MM.MusicMix;
 
+  // Variable que se utilizará para el algoritmo genético
+  private genAlg = GAN.GANumber16Bits;
+
   constructor(leftChannel: Float32Array,
               rightChannel: Float32Array,
               leftChannel2: Float32Array,
@@ -204,113 +207,92 @@ export class MusicProcess {
    * algoritmo genético para que su forma cambie a la forma de la primera
    * canción.
    */
-  public async compose(): Promise<any> {
-    return new Promise<any>((resolve, reject) => {
-      // Crea el índice donde se guardarán los valores del ADN
-      /*let response = this.esCreateIndex();
-      response.catch((err)=>
-      {
-        console.log("Error while creating the index: " + err);
-        reject();
-      });
-      response.then((resp)=>
-      {*/
-      const dnaSong1: number[] = this.getSongDNA(this.leftChannel,
-                                                 this.rightChannel,
-                                                 this.leftChannelBeats,
-                                                 this.rightChannelBeats);
-      let dnaSong2: number[] = this.getSongDNA(this.leftChannel2,
-                                               this.rightChannel2,
-                                               this.leftChannelBeats2,
-                                               this.rightChannelBeats2);
+  public compose(): [Float32Array, Float32Array] {
+    console.log('Obteniendo el ADN de la canción 1');
+    const dnaSong1: number[] = this.getSongDNA(this.leftChannel,
+                                               this.rightChannel,
+                                               this.leftChannelBeats,
+                                               this.rightChannelBeats);
+    console.log('Obteniendo el ADN de la canción 2');
+    let dnaSong2: number[] = this.getSongDNA(this.leftChannel2,
+                                             this.rightChannel2,
+                                             this.leftChannelBeats2,
+                                             this.rightChannelBeats2);
 
-      // Proporciona el ADN de la segunda canción
-      dnaSong2 = this.dnaProportion(dnaSong2, dnaSong1.length);
+    console.log('Obteniendo el AND proporcionado de la canción 2');
+    // Proporciona el ADN de la segunda canción
+    dnaSong2 = this.dnaProportion(dnaSong2, dnaSong1.length);
 
-      const totalReducedSongValues = Math.min(dnaSong1.length, dnaSong2.length);
+    console.log('Reduciendo las canciones');
+    const totalReducedSongValues = Math.min(dnaSong1.length, dnaSong2.length);
 
-      console.log('dnaSong1: ' + dnaSong1.length);
-      console.log('dnaSong2: ' + dnaSong2.length);
-      console.log('totalReducedSongValues: ' + totalReducedSongValues);
+    console.log('Obteniendo la distribución del ADN');
+    const dnaDistributionSong1: Array<[number, number[]]> = this.getDNADistribution(dnaSong1);
+    const dnaDistributionSong2: Array<[number, number[]]> = this.getDNADistribution(dnaSong2);
 
-      const distribution: Array<[number, number]> = [];
+    // console.log(dnaDistributionSong1);
+    // console.log(dnaDistributionSong2);
 
-      this.esBulkSong(dnaSong1)
-        .catch((err) => {
-          console.log(`Error en el bulk: ${err}`);
-          reject();
-        })
-        .then((resp) => {
-          this.esSearch()
-            .catch((err) => {
-              console.log(`Error en el search: ${err}`);
-              reject();
-            })
-            .then((totales) => {
-              const tot = totales.aggregations.byType.buckets;
-              tot.forEach((t: any) => {
-                distribution.push([t.key, t.doc_count]);
-              });
+    console.log('Obteniendo la distribución en 16 bits del ADN');
+    const distributionSong1: Array<[number, number, number, number, number[]]>
+            = this.getDistribution16Bits(dnaDistributionSong1, totalReducedSongValues);
+    const distributionSong2: Array<[number, number, number, number, number[]]>
+            = this.getDistribution16Bits(dnaDistributionSong2, totalReducedSongValues);
 
-              let individuals: number[][] = this.createIndividuals(MusicProcess.individualsNumber,
-                                                                   distribution,
-                                                                   dnaSong1);
+    const dnaSol1Pos: Utils.IHash<number> = {};
 
-              let bestIndividual: number[] = [];
-              let bestPercentage: number = 0;
-              let seguir: boolean = true;
-              let numGenerations: number = 0;
+    for (let pos: number = 0; pos < distributionSong1.length; pos = pos + 1) {
+      dnaSol1Pos[distributionSong1[pos][0]] = pos;
+    }
 
-              while (seguir && numGenerations < MusicProcess.stopGenerationsNumber) {
-                individuals = this.fitnessOfIndividuals(individuals, dnaSong1, dnaSong2);
+    // console.log(distributionSong1);
+    // console.log(distributionSong2);
 
-                bestIndividual = individuals[individuals.length - 1];
-                bestPercentage = this.fitnessOfIndividual(bestIndividual, dnaSong1, dnaSong2);
-                if (bestPercentage > bestIndividual.length * MusicProcess.successEndPercentage) {
-                  seguir = false;
-                } else {
-                  numGenerations = numGenerations + 1;
-                  if (numGenerations % 10 === 0) {
-                    process.stdout.write(`Generations: ${numGenerations}` +
-                                         `, best percentage so far: ${bestPercentage}` +
-                                         ` / ${bestIndividual.length} \r`);
-                  }
-                  individuals = this.crossIndividuals(individuals, MusicProcess.individualsNumber);
-                  individuals = this.mutateIndividuals(individuals, totalReducedSongValues);
-                }
-              }
+    const individuals: number[] = dnaSong1; // this.createIndividuals(distribution);
 
-              process.stdout.write('\n');
-              console.log('Done.');
-              // console.log(bestIndividual);
+    console.log('Inicio del algoritmo genético');
+    const genAlg: GAN.GANumber16Bits =
+          new GAN.GANumber16Bits(individuals,
+                                 0.2,
+                                 MusicProcess.livePercentage,
+                                 MusicProcess.mutationPercentage,
+                                 MusicProcess.stopGenerationsNumber,
+                                 true, 0, 0, 0,
+                                 MusicProcess.genAlgTolerance);
 
-              this.esDeleteIndex()
-                .catch((err) => {
-                  console.log(`Error al borrar el índice: ${err}`);
-                  reject();
-                })
-                .then(() => {
-                  resolve(this.createSong(bestIndividual,
-                                          this.leftChannel,
-                                          this.rightChannel,
-                                          MusicProcess.sliceSize));
-                })
-                .catch((err) => {
-                  console.log(`Error: ${err}`);
-                  reject();
-                });
-            })
-            .catch((err) => {
-              console.log(`Error: ${err}`);
-              reject();
-            });
-        })
-        .catch((err) => {
-          console.log(`Error: ${err}`);
-          reject();
-        });
-      // });
+    const indivSol: Array<[number, number[]]> = [];
+
+    // console.log('Tengo que hacer: ' + distributionSong2.length);
+    // let j: number = 0;
+    distributionSong2.forEach((dist) => {
+      // j = j + 1;
+      // console.log('Estoy en la: ' + j);
+      // console.log('genSong2: ' + dist[0]);
+      const genSong2: number = dist[0];
+      // console.log('neededPercentage: ' + dist[1]);
+      const neededPercentage: number = dist[1];
+      // console.log('posSong1: ' + dnaSol1Pos[genSong2]);
+      let posSong1: number = dnaSol1Pos[genSong2];
+      if (distributionSong1[posSong1] === undefined) {
+        posSong1 = Utils.Utils.intRandom(0, distributionSong1.length - 1);
+      }
+      // console.log('minVal: ' + distributionSong1[posSong1]);
+      // console.log('minVal: ' + distributionSong1[posSong1][2]);
+      const minVal: number = distributionSong1[posSong1][2];
+      // console.log('maxVal: ' + distributionSong1[posSong1][3]);
+      const maxVal: number = distributionSong1[posSong1][3];
+      genAlg.setNeededPercentage(neededPercentage);
+      genAlg.setMatchMinVal(minVal);
+      genAlg.setMatchMaxVal(maxVal);
+      genAlg.setSuccessEndPercentage(neededPercentage);
+      genAlg.runGA();
+      indivSol.push([genSong2, genAlg.getMatchIndividualsFromPoblation()]);
     });
+    console.log('Final del algoritmo genético');
+    console.log('Creando la canción');
+    return this.createSong(dnaSong2, indivSol, distributionSong1,
+                           this.leftChannel, this.rightChannel,
+                           MusicProcess.sliceSize);
   }
 
   // Getters y Setters
@@ -459,34 +441,6 @@ export class MusicProcess {
 
   // Métodos privados
 
-  /*
-   * Concatena dos arrays de tipo Float32Array.
-   * El resultado se devuelve en un nuevo arreglo del mismo tipo.
-   */
-  private float32Concat(first: Float32Array, second: Float32Array): Float32Array {
-    const firstLength = first.length;
-    const result = new Float32Array(firstLength + second.length);
-
-    result.set(first);
-    result.set(second, firstLength);
-
-    return result;
-  }
-
-  /**
-   * Función que realiza la comparación de dos números,
-   * se considera que los valores son iguales si se encuentran
-   * a una distancia menor a la tolerancia definida
-   * @param number1 El primer valor que se quiere comparar.
-   * @param number2 El segundo valor que se quiere comparar.
-   */
-  private compare(number1: number, number2: number, tolerancia: number): boolean {
-    if (Math.abs(number2 - number1) < tolerancia) {
-      return true;
-    }
-    return false;
-  }
-
   /**
    * Toma los valores en donde se dio el porcentaje de valores mayores
    * y los refina quitando lo que están muy cercanos (repetidos).
@@ -497,15 +451,15 @@ export class MusicProcess {
     let pos: number = 0;
 
     while (pos < tiempos.length - MusicProcess.repetitions) {
-      if (this.compare(tiempos[pos][0],
-                       tiempos[pos + MusicProcess.repetitions][0],
-                       MusicProcess.repetitionsTime)) {
+      if (Utils.Utils.compare(tiempos[pos][0],
+                              tiempos[pos + MusicProcess.repetitions][0],
+                              MusicProcess.repetitionsTime)) {
         let pos2: number = pos + MusicProcess.repetitions + 1;
 
         while (pos2 < tiempos.length &&
-               this.compare(tiempos[pos][0],
-                            tiempos[pos2][0],
-                            MusicProcess.minTimeBetweenBeats)) {
+               Utils.Utils.compare(tiempos[pos][0],
+                                   tiempos[pos2][0],
+                                   MusicProcess.minTimeBetweenBeats)) {
           pos2 = pos2 + 1;
         }
         refinado.push(tiempos[pos][0]);
@@ -519,88 +473,13 @@ export class MusicProcess {
   }
 
   /**
-   * Función que ordena un array por el valor de cada tiempo.
-   * @param pSong Array que se quiere ordenar.
-   */
-  private sortArray(tiempos: number[]) {
-    return tiempos.sort((time1, time2) => {
-      if (time1 > time2) {
-        return 1;
-      }
-      if (time1 < time2) {
-        return -1;
-      }
-      return 0;
-    });
-  }
-
-  /**
-   * Función que ordena un array de enteros por el segundo valor del elemento.
-   * @param pSong Array que se quiere ordenar.
-   */
-  private sortArrayBySecondPos(tiempos: Array<[any, number]>) {
-    return tiempos.sort((time1, time2) => {
-      if (time1[1] < time2[1]) {
-        return -1;
-      }
-      if (time1[1] > time2[1]) {
-        return 1;
-      }
-      return 0;
-    });
-  }
-
-  /**
-   * Función que ordena un array de enteros por el primer valor del elemento.
-   * @param pSong Array que se quiere ordenar.
-   */
-  private sortArrayByFirstPos(tiempos: Array<[number, any]>) {
-    return tiempos.sort((time1, time2) => {
-      if (time1[0] < time2[0]) {
-        return -1;
-      }
-      if (time1[0] > time2[0]) {
-        return 1;
-      }
-      return 0;
-    });
-  }
-
-  /**
-   * Hace una copia de un array de tipo Float32Array.
-   * @param original Arreglo original que se desea copiar.
-   */
-  private float32Copy(original: Float32Array): Float32Array {
-    const result = new Float32Array(original.length);
-
-    result.set(original);
-
-    return result;
-  }
-
-  /**
-   * Crea un nuevo array que es copia del original pero con la posición de
-   * cada elemento numerada desde el offset y en valor absoluto.
-   * @param original El arreglo original que se desea copiar.
-   * @param offset El valor a partir del cual se quiere inicial la numeración.
-   */
-  private createNumberedAbsoluteArray(original: Float32Array,
-                                      offset: number): Array<[number, number]> {
-    const copia: Array<[number, number]> = [];
-    for (let pos = 0; pos < original.length; pos = pos + 1) {
-      copia.push([offset + pos, Math.abs(original[pos])]);
-    }
-    return copia;
-  }
-
-  /**
    * Realiza el refinado de ambos canales, tuvo que haber coincidencia en ambos para decir
    * que las dos canciones hicieron match.
    * @param lChannel Canal izquierdo de la canción.
    * @param rChannel Canal derecho de la canción.
    */
   private refineBothChannels(lChannel: number[], rChannel: number[]): number[] {
-    return this.refine(this.sortArray(lChannel.concat(rChannel)), MusicProcess.tolerance);
+    return this.refine(Utils.Utils.sortArray(lChannel.concat(rChannel)), MusicProcess.tolerance);
   }
 
   /**
@@ -616,7 +495,7 @@ export class MusicProcess {
     const refinado: number[] = [];
 
     for (let pos: number = 0; pos < tiempos.length - 1; pos = pos + 1) {
-      if (this.compare(tiempos[pos], tiempos[pos + 1], tolerance)) {
+      if (Utils.Utils.compare(tiempos[pos], tiempos[pos + 1], tolerance)) {
         refinado.push(tiempos[pos]);
         pos = pos + 1;
       }
@@ -657,9 +536,9 @@ export class MusicProcess {
 
     if (max > 1) {
       for (let pos = 0; pos < max; pos = pos + 1) {
-        if (this.compare(song1[posSong1 + pos] - offsetSong1,
-                         song2[posSong2 + pos] - offsetSong2,
-                         MusicProcess.tolerance)) {
+        if (Utils.Utils.compare(song1[posSong1 + pos] - offsetSong1,
+                                song2[posSong2 + pos] - offsetSong2,
+                                MusicProcess.tolerance)) {
           percentage = percentage + 1;
         }
       }
@@ -676,17 +555,17 @@ export class MusicProcess {
    */
   private getBeats(songChannel: Float32Array, offset: number): number[] {
     // Se copia el canal en un array enumerado y con los valores positivos
-    let newChannel = this.createNumberedAbsoluteArray(songChannel, offset);
+    let newChannel = Utils.Utils.createNumberedAbsoluteArray(songChannel, offset);
 
     // Se ordena el canal por el valor del sonido
-    newChannel = this.sortArrayBySecondPos(newChannel);
+    newChannel = Utils.Utils.sortArrayBySecondPos(newChannel);
 
     // Se obtiene el porcentaje de samples requerido
     const numsamples: number = Math.floor(MusicProcess.samplesPercentage * newChannel.length);
     newChannel = newChannel.slice(newChannel.length - numsamples);
 
     // Se ordena por tiempo
-    newChannel = this.sortArrayByFirstPos(newChannel);
+    newChannel = Utils.Utils.sortArrayByFirstPos(newChannel);
 
     // Se obtienen los tiempos de los beats del canal
     const beats: number[] = this.refinarBeats(newChannel);
@@ -723,7 +602,7 @@ export class MusicProcess {
    */
   private getDJTimes(time: number): number[][] {
     let times: Array<[number, number]> = [];
-    const usedTimes: IHash<boolean> = {};
+    const usedTimes: Utils.IHash<boolean> = {};
 
     // Valor máximo para el random
     const max = Math.floor(this.leftChannel.length / time - 1);
@@ -766,7 +645,7 @@ export class MusicProcess {
       }
     }
 
-    this.sortArrayBySecondPos(times);
+    Utils.Utils.sortArrayBySecondPos(times);
     if (times.length > 10) {
       times = times.slice(times.length - 10);
     }
@@ -787,24 +666,11 @@ export class MusicProcess {
       const pos = sample[0];
       sonidoChannelLeft.set(this.leftChannel.slice(pos, pos + tamanno));
       sonidoChannelRight.set(this.rightChannel.slice(pos, pos + tamanno));
-      sonidos.push([this.float32Copy(sonidoChannelLeft), this.float32Copy(sonidoChannelRight)]);
+      sonidos.push([Utils.Utils.float32Copy(sonidoChannelLeft),
+        Utils.Utils.float32Copy(sonidoChannelRight)]);
     });
 
     return sonidos;
-  }
-
-  /**
-   * Obtiene el promedio de una lista de números.
-   * @param numbers Una lista de números.
-   */
-  private getAverage(numbers: Float32Array): number {
-    let total: number = 0;
-
-    numbers.forEach((number) => {
-      total = total + number;
-    });
-
-    return total / numbers.length;
   }
 
   /**
@@ -847,16 +713,50 @@ export class MusicProcess {
     return reducedSong;
   }
 
-  private createSong(individual: number[],
+  private createSong(dnaSong2: number[],
+                     solutions: Array<[number, number[]]>,
+                     dnaDistributionSong1: Array<[number, number, number, number, number[]]>,
                      songLeftChannel: Float32Array,
                      songRightChannel: Float32Array,
                      size: number): [Float32Array, Float32Array] {
-    const totalSize: number = individual.length * size;
+    const totalSize: number = dnaSong2.length * size;
     const newSongLeftChannel: Float32Array = new Float32Array(totalSize);
     const newSongRightChannel: Float32Array = new Float32Array(totalSize);
 
-    for (let pos = 0; pos < individual.length; pos = pos + 1) {
-      const min = individual[pos] * size;
+    const currentUsedPositions: number[] = new Array(solutions.length);
+    const dnaSol: Utils.IHash<number> = {};
+    const dnaDist: Utils.IHash<number> = {};
+
+    for (let pos: number = 0; pos < solutions.length; pos = pos + 1) {
+      dnaSol[solutions[pos][0]] = pos;
+    }
+
+    for (let pos: number = 0; pos < dnaDistributionSong1.length; pos = pos + 1) {
+      dnaDist[dnaDistributionSong1[pos][0]] = pos;
+    }
+
+    for (let pos = 0; pos < dnaSong2.length; pos = pos + 1) {
+      const dnaVal: number = dnaSong2[pos];
+      const posSol: number = dnaSol[dnaVal];
+      const posDist: number = dnaDist[dnaVal];
+      const sol: number = solutions[posSol][1][currentUsedPositions[posSol]];
+      if (currentUsedPositions[posSol] < solutions[posSol][1].length - 1) {
+        currentUsedPositions[posSol] = currentUsedPositions[posSol] + 1;
+      } else {
+        currentUsedPositions[posSol] = 0;
+      }
+
+      // console.log(dnaDistributionSong1[posDist]);
+      // console.log(sol);
+
+      const posDNA: number
+        = this.distribution16BitsToDistributionSongPosition(dnaDistributionSong1[posDist][2],
+                                                            dnaDistributionSong1[posDist][3],
+                                                            sol,
+                                                            dnaDistributionSong1[posDist][4].
+                                                            length);
+
+      const min = dnaDistributionSong1[posDist][4][posDNA] * size;
       let max = min + size;
 
       if (max > songLeftChannel.length) {
@@ -868,6 +768,14 @@ export class MusicProcess {
     }
 
     return [newSongLeftChannel, newSongRightChannel];
+  }
+
+  private distribution16BitsToDistributionSongPosition(minDnaDist16Bits: number,
+                                                       maxDNADist16Bits: number,
+                                                       solDNADist16Bits: number,
+                                                       sizeSongDNADistribution: number) {
+    return Math.floor(sizeSongDNADistribution * (solDNADist16Bits - minDnaDist16Bits) /
+                      (maxDNADist16Bits - minDnaDist16Bits));
   }
 
   private dnaProportion(dnaOriginal: number[], newSize: number): number[] {
@@ -891,201 +799,12 @@ export class MusicProcess {
     return newDNA;
   }
 
-  private mutateIndividuals(individuals: number[][], cant: number): number[][] {
-    for (let pos: number = 0; pos < individuals.length; pos = pos + 1) {
-      if (Math.random() < MusicProcess.mutationPercentage) {
-        individuals[pos] = this.mutateIndividual(individuals[pos], cant);
-      }
-    }
-    return individuals;
-  }
-
-  private mutateIndividual(individual: number[], cant: number): number[] {
-    const pos = Math.floor(Math.random() * individual.length);
-    const valMutation = Math.floor(Math.random() * cant);
-
-    individual[pos] = valMutation;
-
-    return individual;
-  }
-
-  private fitnessOfIndividuals(individuals: number[][],
-                               dnaSong1: number[],
-                               dnaSong2: number[]): number[][] {
-    let individualFitness: Array<[number[], number]> = [];
-    individuals.forEach((individual) => {
-      individualFitness.push([individual, this.fitnessOfIndividual(individual,
-                                                                   dnaSong1,
-                                                                   dnaSong2)]);
-    });
-    this.sortArrayBySecondPos(individualFitness);
-    const min = (1 - MusicProcess.livePercentage) * individualFitness.length;
-    individualFitness = individualFitness.slice(min);
-    const liveIndividuals: Array<number[]> = Array<number[]>(individualFitness.length);
-    for (let pos = 0; pos < individualFitness.length; pos = pos + 1) {
-      liveIndividuals[pos] = individualFitness[pos][0];
-    }
-
-    return liveIndividuals;
-  }
-
-  private fitnessOfIndividual(individual: number[],
-                              dnaSong1: number[],
-                              dnaSong2: number[]): number {
-    let numMatches: number = 0;
-
-    for (let pos: number = 0; pos < individual.length; pos = pos + 1) {
-      const crom: number = individual[pos];
-      if (dnaSong1[crom] === dnaSong2[pos]) {
-        numMatches = numMatches + 1;
-      }
-    }
-
-    return numMatches;
-  }
-
-  private crossIndividuals(individuals: number[][], cant: number): number[][] {
-    const newIndividuals: number[][] = new Array<number[]>(cant);
-    for (let pos: number = 0; pos < cant; pos = pos + 1) {
-      const posFather: number = Math.floor(Math.random() * individuals.length);
-      const posMother: number = Math.floor(Math.random() * individuals.length);
-      newIndividuals[pos] = this.newSon(individuals[posFather], individuals[posMother]);
-    }
-    return newIndividuals;
-  }
-
-  private newSon(father: number[], mother: number[]): number[] {
-    const son: number[] = new Array<number>(father.length);
-    for (let cantCrom: number = 0; cantCrom < father.length; cantCrom = cantCrom + 1) {
-      if (cantCrom % 2 === 0) {
-        son[cantCrom] = father[cantCrom];
-      } else {
-        son[cantCrom] = mother[cantCrom];
-      }
-    }
-
-    return son;
-  }
-
-  private createIndividuals(cant: number,
-                            distribution: Array<[number, number]>,
-                            dnaSong: number[]): Array<number[]> {
-    const individuals: Array<number[]> = new Array<number[]>(cant);
-
-    for (let cont: number = 0; cont < cant; cont = cont + 1) {
-      individuals[cont] = this.createIndividual(distribution, dnaSong);
-    }
-
-    return individuals;
-  }
-
-  private createIndividual(distribution: Array<[number, number]>, dnaSong: number[]): number[] {
-    const individual: number[] = new Array<number>(dnaSong.length);
-    const max = dnaSong.length;
-    const dist: number[] = new Array<number>(distribution.length);
-    const position: IHash<number> = {};
-
-    for (let cont = 0; cont < distribution.length; cont = cont + 1) {
-      const value = distribution[cont][0];
-      dist[cont] = 0;
-      position[value] = cont;
-    }
-
-    let total: number = 0;
-    while (total < max) {
-      const newValue = Math.floor(Math.random() * max);
-      const pos: number = position[dnaSong[newValue]];
-      if (pos != undefined && dist[pos] < distribution[pos][1]) {
-        dist[pos] = dist[pos] + 1;
-        individual[total] = newValue;
-        total = total + 1;
-      }
-    }
-    /*for (let cont: number = 0; cont < max; cont = cont + 1) {
-    individual[cont] = Math.floor(Math.random() * max);
-    }*/
-    return individual;
-  }
-
-  private async esSearch(): Promise<any> {
-    const client = require('./esconnection.js');
-
-    return await new Promise<any>((resolve, reject) => {
-      resolve(client.search({
-        index: "song",
-        type: "part",
-        body: {
-          "aggs": {
-            "byType": {
-              "terms":{
-                "field":"type",
-                "size": 100000
-              }
-            }
-          }
-        }
-      }));
-    });
-  }
-
-  private async esBulkSong(dnaSong: number[]): Promise<any> {
-    const bulk: any[] = this.esPrepareBulkData(dnaSong);
-    return await new Promise<any>((resolve, reject) => {
-      resolve(this.esIndexall(bulk))
-    });
-  }
-
-  private async esIndexall(madebulk: any): Promise<any> {
-    const client = require('./esconnection.js');
-    return await new Promise<any>((resolve, reject) => {
-      resolve(client.bulk({
-        maxRetries: 5,
-        index: 'song',
-        type: 'part',
-        body: madebulk
-      }))
-    });
-  }
-
-  private esPrepareBulkData(dnaSong: number[]): any[] {
-    const bulk: any[] = [];
-
-    for (let pos = 0; pos < dnaSong.length; pos = pos + 1) {
-      bulk.push({
-        index: { _index: 'song', _type: 'part', _id: pos }
-      },{
-        type: dnaSong[pos]
-      });
-    }
-
-    return bulk;
-  }
-
-  private async esCreateIndex(): Promise<any> {
-    const client = require('./esconnection.js');
-
-    return await new Promise<any>((resolve, reject) =>
-      resolve(client.indices.create({ index: 'song' }))
-    );
-  }
-
-  private async esDeleteIndex(): Promise<any> {
-    const client = require('./esconnection.js');
-
-    return await new Promise<any>((resolve, reject) =>
-      resolve(client.indices.delete({ index: 'song' }))
-    );
-  }
-
   private getSongDNA(songLeftChannel: Float32Array,
                      songRightChannel: Float32Array,
                      leftBeats: number[],
                      rightBeats: number[]): number[] {
     const reducedLeftChannel = this.reduceChannelSong(songLeftChannel);
     const reducedRightChannel = this.reduceChannelSong(songRightChannel);
-
-    console.log('reducedLeftChannel: ' + reducedLeftChannel.length);
-    console.log('reducedRightChannel: ' + reducedRightChannel.length);
 
     return this.getChannelsSongDNA(reducedLeftChannel, reducedRightChannel, leftBeats, rightBeats);
   }
@@ -1095,12 +814,13 @@ export class MusicProcess {
                              leftBeats: number[],
                              rightBeats: number[]): number[] {
 
-    let beats = this.refine(this.sortArray(leftBeats.concat(rightBeats)), MusicProcess.tolerance);
+    const beats = this.refine(Utils.Utils.sortArray(leftBeats.concat(rightBeats)),
+                              MusicProcess.tolerance);
     for (let pos: number = 0; pos < beats.length; pos = pos + 1) {
       beats[pos] = Math.floor(beats[pos] / MusicProcess.sliceSize);
     }
 
-    let resp: number[] = [];
+    const resp: number[] = [];
     let beatActual: number = 0;
     let unTercio: number = 0;
     let dosTercios: number = 0;
@@ -1111,7 +831,7 @@ export class MusicProcess {
       const altura = this.alturaNota(Math.max(reducedLeftChannel[pos], reducedRightChannel[pos]));
       let lugar: number = 0;
 
-      if (pos == beats[beatActual]) {
+      if (pos === beats[beatActual]) {
 
         tipo = MusicProcess.BEAT;
         lugar = MusicProcess.INICIO;
@@ -1121,9 +841,9 @@ export class MusicProcess {
         let min: number = 0;
         let max: number = 0;
 
-        if (beatActual < beats.length - 1){
+        if (beatActual < beats.length - 1) {
           min = beats[beatActual];
-          max = beats[beatActual + 1]
+          max = beats[beatActual + 1];
         } else {
           max = reducedLeftChannel.length;
           min = beats[beatActual];
@@ -1154,7 +874,7 @@ export class MusicProcess {
           tipo = respRight[0];
         }
 
-        if (beatActual < beats.length - 1){
+        if (beatActual < beats.length - 1) {
           unTercio = Math.floor(beats[beatActual] / 3);
           dosTercios = Math.floor(2 * beats[beatActual] / 3);
         } else {
@@ -1167,11 +887,10 @@ export class MusicProcess {
         resp.push(tipo + altura + lugar);
 
       } else {
-        let lugar: number;
 
-        if (pos < beats[beatActual - 1] + unTercio){
+        if (pos < beats[beatActual - 1] + unTercio) {
           lugar = MusicProcess.INICIO;
-        } else if (pos < beats[beatActual - 1] + dosTercios){
+        } else if (pos < beats[beatActual - 1] + dosTercios) {
           lugar = MusicProcess.MITAD;
         } else {
           lugar = MusicProcess.FINAL;
@@ -1217,15 +936,6 @@ export class MusicProcess {
     return arrayDNA;
   }
 
-  /**
-   * Calcula la función piso para un número dado con el escalón del tamaño dado por n.
-   * @param x El número al que se le quiere hacer el cálculo.
-   * @param n El tamaño del escalón.
-   */
-  private myFloor(x: number, n: number): number {
-    return Math.floor(x / n) * n;
-  }
-
   private getChannelPartDNA(songPart: number[]): [number, number] {
     const max: number = songPart.length;
     const midPoint: number = Math.floor(max / 2);
@@ -1244,7 +954,7 @@ export class MusicProcess {
         downLeft = downLeft + 1;
       }
 
-      if (this.compare(songPart[pos], songPart[pos + 1], MusicProcess.toleranceLlanura)) {
+      if (Utils.Utils.compare(songPart[pos], songPart[pos + 1], MusicProcess.toleranceLlanura)) {
         sameLeft = sameLeft + 1;
       }
     }
@@ -1256,7 +966,7 @@ export class MusicProcess {
         downRight = downRight + 1;
       }
 
-      if (this.compare(songPart[pos], songPart[pos + 1], MusicProcess.toleranceLlanura)) {
+      if (Utils.Utils.compare(songPart[pos], songPart[pos + 1], MusicProcess.toleranceLlanura)) {
         sameRight = sameRight + 1;
       }
     }
@@ -1291,6 +1001,43 @@ export class MusicProcess {
     });
 
     return [tipo, maxPer];
+  }
+
+  private getDistribution16Bits(dnaDistributionSong: Array<[number, number[]]>,
+                                totalNumbers: number):
+                                Array<[number, number, number, number, number[]]> {
+    const resp: Array<[number, number, number, number, number[]]> = [];
+    let currentMax: number = 0;
+
+    dnaDistributionSong.forEach((dist) => {
+      resp.push([dist[0],
+        dist[1].length / totalNumbers,
+        currentMax,
+        currentMax = currentMax +
+      Math.round(MusicProcess.BITS16 *
+        dist[1].length / totalNumbers),
+        dist[1]]);
+      currentMax = currentMax + 1;
+    });
+
+    return resp;
+  }
+
+  private getDNADistribution(dna: number[]): Array<[number, number[]]> {
+    const resp: Array<[number, number[]]> = [];
+    const usedDNA: Utils.IHash<boolean> = {};
+    const dnaPos: Utils.IHash<number> = {};
+    for (let pos = 0; pos < dna.length; pos = pos + 1) {
+      const gen = dna[pos];
+      if (usedDNA[gen] != undefined && usedDNA[gen]) {
+        resp[dnaPos[gen]][1].push(pos);
+      } else {
+        resp.push([gen, [pos]]);
+        usedDNA[gen] = true;
+        dnaPos[gen] = resp.length - 1;
+      }
+    }
+    return resp;
   }
 
 }

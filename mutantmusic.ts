@@ -62,26 +62,10 @@ try {
     nombreArchivo = `${archivoWAV2.slice(0, archivoWAV2.length - 4)}_dj.wav`;
   } else if (funcion === 'cmp') {
     console.log('Creating the composed song...');
-    continuar = false;
-    musicprocess.compose()
-      .catch((err) => {
-        console.log(`Error creating the composed song: ${err}`);
-      })
-      .then((song) => {
-        cancion2.channelData[0] = song[0];
-        cancion2.channelData[1] = song[1];
-        nombreArchivo = `${archivoWAV2.slice(0, archivoWAV2.length - 4)}_cmp.wav`;
-        console.log('Saving the song...');
-        try {
-          WFM.WavFileManager.writeWAV(nombreArchivo, cancion2);
-        } catch (e) {
-          console.log(`There was an error while saving the file: ${e}`);
-          error = true;
-        }
-      })
-      .catch((err) => {
-        console.log(`Error creating the composed song: ${err}`);
-      });
+    const song = musicprocess.compose();
+    cancion2.channelData[0] = song[0];
+    cancion2.channelData[1] = song[1];
+    nombreArchivo = `${archivoWAV2.slice(0, archivoWAV2.length - 4)}_cmp.wav`;
   } else {
     continuar = false;
     console.log('Función no soportada');

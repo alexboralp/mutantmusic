@@ -7,7 +7,9 @@
     ],
     "jsRules": {},
     "rules": {
-        "no-console": false
+        "no-console": false,
+        "no-bitwise": false,
+        "prefer-array-literal": false
     },
     "rulesDirectory": []
 }
